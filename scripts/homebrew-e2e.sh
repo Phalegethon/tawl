@@ -40,7 +40,7 @@ capture_failure() {
     https://api.github.com/repos/Phalegethon/tawl/releases/latest \
     2> "$diagnostic/curl-error.txt" | /usr/bin/head -c 65536 > "$diagnostic/body.txt"
   curl_status=${PIPESTATUS[0]}
-  http_status=$(/usr/bin/awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code == "" ? "000" : code }' "$diagnostic/headers.txt")
+  http_status=$(/usr/bin/awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print (code == "" ? "000" : code) }' "$diagnostic/headers.txt")
   {
     printf 'failed_exit_status=%s\nfailed_line=%s\n' "$failure_status" "$failure_line"
     printf 'user_agent=tawl/%s\nhttp_status=%s\ncurl_exit_status=%s\n' "$installed_version" "$http_status" "$curl_status"
