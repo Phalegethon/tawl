@@ -1,6 +1,15 @@
 // Turkish translations for release checks and installation feedback.
 enum TurkishUpdates {
     static let strings: [String: String] = [
+        "GitHub API rate limit reached (HTTP {0}).": "GitHub API istek sınırına ulaşıldı (HTTP {0}).",
+        "Retry after {0} (about {1} min). Then run `tawl update check`.": "{0} sonrasında yeniden dene (yaklaşık {1} dk). Ardından `tawl update check` çalıştır.",
+        "The previous wait has ended. Run `tawl update check` to try again.": "Bekleme süresi doldu. Yeniden denemek için `tawl update check` çalıştır.",
+        "GitHub did not provide a usable retry time. Wait at least 1 minute, then run `tawl update check`.": "GitHub geçerli bir yeniden deneme zamanı bildirmedi. En az 1 dakika bekle, ardından `tawl update check` çalıştır.",
+        "Installed TAWL {0} was left unchanged.": "Kurulu TAWL {0} değiştirilmedi.",
+        "Homebrew alternative: `brew update && brew upgrade phalegethon/tawl/tawl`.": "Homebrew alternatifi: `brew update && brew upgrade phalegethon/tawl/tawl`.",
+        "Update rate limit · retry {0} · tawl update check": "Güncelleme sınırı · {0} sonrası · tawl update check",
+        "Update rate limit · retry now · tawl update check": "Güncelleme sınırı · şimdi dene · tawl update check",
+        "Update rate limit · wait at least 1 min · tawl update check": "Güncelleme sınırı · en az 1 dk bekle · tawl update check",
         "Cannot create a temporary binary beside the installation.": "Kurulum yanında geçici çalıştırılabilir dosya oluşturulamadı.",
         "Cannot create command output file.": "Komut çıktı dosyası oluşturulamadı.",
         "Cannot safely open the installation directory.": "Kurulum dizini güvenle açılamadı.",

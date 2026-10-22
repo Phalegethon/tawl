@@ -21,7 +21,11 @@ brew update && brew upgrade phalegethon/tawl/tawl
 tawl --version
 ```
 
-You can also use `tawl update check` and `tawl update`; TAWL delegates a Homebrew-managed update to Homebrew and asks before applying it. At monitor launch, a background release check runs at most once daily and can show a newer-release notice; it never installs automatically. `TAWL_NO_UPDATE_CHECK=1` or `tawl --no-update-check` disables that automatic check.
+You can also use `tawl update check` and `tawl update`; TAWL delegates a Homebrew-managed update to Homebrew and asks before applying it.
+
+If GitHub limits release checks, these commands show a quota-specific warning. When retry timing is available, it includes the local retry time, timezone and remaining wait. Otherwise, it states that the exact retry time is unknown and advises waiting at least a minute. For Homebrew installations, `brew update && brew upgrade phalegethon/tawl/tawl` skips TAWL's release-metadata check; upstream network limits can still affect Homebrew.
+
+At monitor launch, a background release check runs at most once daily. A newer release or rate limit can appear as a short footer notice while monitoring continues; other background failures stay quiet. A warning does not trigger an automatic retry or installation, and the daily check schedule is unchanged. `TAWL_NO_UPDATE_CHECK=1` or `tawl --no-update-check` disables that automatic check.
 
 To uninstall:
 

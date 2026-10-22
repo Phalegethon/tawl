@@ -58,7 +58,9 @@ Do not build checksums before signing: signing changes the executable. Do not re
 
 `tawl update check` performs an explicit network check. `tawl update` presents the candidate and asks before applying it; `--yes` is the explicit non-interactive form. Homebrew installations delegate to `brew update` and a formula-scoped `brew upgrade`. The standalone path requires an installation receipt and replaces only the owned executable after verification.
 
-Interactive auto-checking is asynchronous and caches checks for at most daily requests. A newer-version notice appears in the footer when no higher-priority action/search message is present. `TAWL_NO_UPDATE_CHECK=1` or `--no-update-check` disables this background request. The GitHub API receives the usual release-request metadata, never process names, project paths or resource samples. Explicit errors are reported; silent background failures keep the monitor usable.
+GitHub rate limits produce a quota-specific warning for explicit update commands. When the response provides usable retry timing, the warning includes the local retry time, timezone and remaining wait. Otherwise, it states that the exact retry time is unknown and advises waiting at least a minute. Homebrew users can run `brew update && brew upgrade phalegethon/tawl/tawl` to skip TAWL's release-metadata check; this does not guarantee that upstream network limits will not affect Homebrew.
+
+Interactive auto-checking is asynchronous and retains the existing daily cache throttle. A newer-version notice or short rate-limit warning appears in the footer when no higher-priority action/search message is present; monitoring continues. Other background failures stay quiet. A warning does not trigger an automatic retry or installation. `TAWL_NO_UPDATE_CHECK=1` or `--no-update-check` disables this background request. The GitHub API receives the usual release-request metadata, never process names, project paths or resource samples.
 
 ## Validation
 

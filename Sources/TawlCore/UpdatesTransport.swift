@@ -10,6 +10,8 @@ final class UpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private var data = Data()
     private var failure: Error?
     private var redirects = 0
+    private var errorResponse: HTTPURLResponse?
+    private var errorResponseDate = Date()
 
     private init(url: URL, limit: Int) { self.initialURL = url; self.limit = limit }
 
@@ -38,6 +40,20 @@ final class UpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        if let http = response as? HTTPURLResponse {
+            let now = Date()
+            if let limit = GitHubRateLimit.parse(response: http, now: now) {
+                lock.lock(); failure = limit; lock.unlock()
+                completionHandler(.cancel)
+                return
+            }
+            // Secondary limits can be a 403 with only a JSON message. Read a bounded error body.
+            if http.statusCode == 403 {
+                lock.lock(); errorResponse = http; errorResponseDate = now; lock.unlock()
+                completionHandler(.allow)
+                return
+            }
+        }
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
               response.expectedContentLength <= Int64(limit) else {
             lock.lock()
@@ -51,6 +67,15 @@ final class UpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable {
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive bytes: Data) {
         lock.lock()
+        if errorResponse != nil {
+            let remaining = GitHubRateLimit.maximumErrorBodySize - data.count
+            data.append(bytes.prefix(remaining))
+            let oversized = bytes.count > remaining
+            if oversized { failure = receivedError() }
+            lock.unlock()
+            if oversized { dataTask.cancel() }
+            return
+        }
         let oversized = bytes.count > limit - data.count
         if oversized { failure = UpdateError(L10n.text("GitHub response exceeded the download size limit.")) }
         else { data.append(bytes) }
@@ -72,9 +97,16 @@ final class UpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable {
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         lock.lock()
-        if failure == nil { failure = error }
+        if failure == nil { failure = errorResponse == nil ? error : receivedError() }
         lock.unlock()
         completed.signal()
+    }
+
+    /// Called with the lock held; bodies are used for classification, never displayed.
+    private func receivedError() -> Error {
+        if let http = errorResponse,
+           let limit = GitHubRateLimit.parse(response: http, body: data, now: errorResponseDate) { return limit }
+        return UpdateError(L10n.text("GitHub returned an unavailable or oversized response (HTTP \(errorResponse?.statusCode ?? 0))."))
     }
 }
 

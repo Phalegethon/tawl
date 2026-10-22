@@ -3,7 +3,10 @@ import Darwin
 
 struct UpdateError: LocalizedError {
     let message: String
-    init(_ message: String) { self.message = message }
+    let rateLimit: GitHubRateLimit?
+    init(_ message: String, rateLimit: GitHubRateLimit? = nil) {
+        self.message = message; self.rateLimit = rateLimit
+    }
     var errorDescription: String? { message }
 }
 
@@ -80,6 +83,7 @@ public final class UpdateService {
     let runner: (URL, [String], TimeInterval) throws -> UpdateProcessResult
     private let noticeLock = NSLock()
     private var storedNotice: String?
+    private var storedRateLimit: GitHubRateLimit?
     private var automaticStarted = false
 
     public convenience init() {
@@ -109,7 +113,7 @@ public final class UpdateService {
 
     public var notice: String? {
         noticeLock.lock(); defer { noticeLock.unlock() }
-        return storedNotice
+        return storedNotice ?? storedRateLimit?.notice()
     }
 
     public func check() throws -> UpdateCheckResult {
@@ -124,6 +128,12 @@ public final class UpdateService {
             let release = try JSONDecoder().decode(UpdateRelease.self, from: data)
             _ = try release.validatedVersion()
             return release
+        } catch let limit as GitHubRateLimit {
+            var message = limit.guidance() + " " + L10n.text("Installed TAWL \(currentVersion) was left unchanged.")
+            if executableURL.resolvingSymlinksInPath().path.contains("/Cellar/tawl/") {
+                message += " " + L10n.text("Homebrew alternative: `brew update && brew upgrade phalegethon/tawl/tawl`.")
+            }
+            throw UpdateError(message, rateLimit: limit)
         } catch {
             throw UpdateError(L10n.text("Update check unavailable; installed version is \(currentVersion). \(error.localizedDescription)"))
         }
@@ -152,6 +162,7 @@ public final class UpdateService {
         let installedVersion: String
         let checkedAt: Date
         let latestVersion: String?
+        let rateLimit: GitHubRateLimit?
         var hasStableVersion: Bool {
             guard let latestVersion else { return true }
             return (try? SemanticVersion(latestVersion).prerelease.isEmpty) == true
@@ -185,22 +196,32 @@ public final class UpdateService {
         if let cacheURL, let data = readCache(cacheURL), data.count <= 8192,
            let cache = try? JSONDecoder().decode(Cache.self, from: data), cache.schemaVersion == 1,
            cache.source == Self.endpoint.absoluteString, cache.installedVersion == currentVersion, cache.hasStableVersion,
+           cache.rateLimit?.isValid != false,
            now.timeIntervalSince(cache.checkedAt) >= 0, now.timeIntervalSince(cache.checkedAt) < 86400 {
-            setNotice(cache.latestVersion)
+            setNotice(cache.latestVersion, rateLimit: cache.rateLimit)
             return
         }
-        let latest = try? check().latestVersion
-        setNotice(latest)
+        let latest: String?
+        let rateLimit: GitHubRateLimit?
+        do {
+            latest = try check().latestVersion
+            rateLimit = nil
+        } catch {
+            latest = nil
+            rateLimit = (error as? UpdateError)?.rateLimit
+        }
+        setNotice(latest, rateLimit: rateLimit)
         if let cacheURL {
-            let cache = Cache(schemaVersion: 1, source: Self.endpoint.absoluteString, installedVersion: currentVersion, checkedAt: now, latestVersion: latest)
+            let cache = Cache(schemaVersion: 1, source: Self.endpoint.absoluteString, installedVersion: currentVersion, checkedAt: now, latestVersion: latest, rateLimit: rateLimit)
             if let data = try? JSONEncoder().encode(cache) { try? data.write(to: cacheURL, options: .atomic) }
         }
     }
 
-    private func setNotice(_ latest: String?) {
+    private func setNotice(_ latest: String?, rateLimit: GitHubRateLimit? = nil) {
         let checked = latest.flatMap { try? result(for: $0) }
         noticeLock.lock(); defer { noticeLock.unlock() }
         storedNotice = checked?.isUpdateAvailable == true ? L10n.text("New release · tawl update · v\(checked!.latestVersion)") : nil
+        storedRateLimit = rateLimit
     }
 
     static func actualExecutableURL() -> URL {
