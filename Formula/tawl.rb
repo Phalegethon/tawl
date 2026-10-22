@@ -6,7 +6,10 @@ class Tawl < Formula
   license "MIT"
 
   depends_on :macos
-  depends_on macos: :sequoia
+
+  on_macos do
+    depends_on macos: :sequoia
+  end
 
   on_arm do
     url "https://github.com/Phalegethon/tawl/releases/download/v0.1.0/tawl-0.1.0-macos-arm64.tar.gz"

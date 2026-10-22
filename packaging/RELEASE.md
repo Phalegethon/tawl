@@ -24,6 +24,12 @@ Final assets for each architecture are:
 Keep the release assets immutable after publishing. A release version and its
 checksums must identify one set of binaries.
 
+Formula compatibility is checked using Homebrew's actual Ruby DSL, not only Ruby
+syntax. CI refreshes Homebrew before evaluating the checked-in and generated
+formulae; the published install smoke also evaluates every OS/architecture variant.
+Keep the macOS-only requirement at the top level and its version requirement
+inside `on_macos` to remain compatible with Homebrew 7.
+
 ## Signing
 
 Without signing secrets, CI applies an **ad-hoc signature**. This does not

@@ -157,6 +157,32 @@ class DistributionTests(unittest.TestCase):
         self.assertIn('pkgshare.install "LICENSE"', body)
         subprocess.run(["ruby", "-c", str(formula)], check=True, capture_output=True)
 
+    @unittest.skipUnless(shutil.which("brew"), "Homebrew DSL validation requires brew")
+    def test_shipped_and_generated_formula_load_in_homebrew(self):
+        sums = self.directory / "SHA256SUMS"
+        sums.write_text("a" * 64 + "  tawl-1.2.3-macos-arm64.tar.gz\n" +
+                        "b" * 64 + "  tawl-1.2.3-macos-x86_64.tar.gz\n")
+        generated = self.directory / "tawl.rb"
+        self.run_script("generate-formula.sh", "--version", "1.2.3", "--checksums", sums,
+                        "--output", generated)
+        # Ruby syntax checks alone cannot detect invalid Homebrew DSL combinations.
+        ruby = '''require "formula"
+load ARGV.fetch(0)
+f = Tawl.new("tawl", Pathname(ARGV.fetch(0)), :stable)
+abort "macOS must be supported" unless f.supports_macos?
+abort "Linux must be rejected" if f.supports_linux?
+abort "macOS 15 minimum missing" unless f.requirements.any? { |r|
+  r.is_a?(MacOSRequirement) && r.version.to_s == "15"
+}
+'''
+        for formula in (ROOT / "Formula/tawl.rb", generated):
+            with self.subTest(formula=formula):
+                result = subprocess.run(["brew", "ruby", "-e", ruby, str(formula)],
+                                        text=True, capture_output=True,
+                                        env=dict(os.environ, HOMEBREW_NO_AUTO_UPDATE="1",
+                                                 HOMEBREW_NO_ANALYTICS="1"))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_formula_refuses_missing_architecture_and_preserves_previous_file(self):
         sums = self.directory / "SHA256SUMS"
         sums.write_text("a" * 64 + "  tawl-1.2.3-macos-arm64.tar.gz\n")

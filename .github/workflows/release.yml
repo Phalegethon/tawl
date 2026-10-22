@@ -38,6 +38,8 @@ jobs:
       RELEASE_REF_NAME: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Refresh Homebrew for formula compatibility checks
+        run: brew update
       - name: Test and build release binary
         shell: bash
         run: |

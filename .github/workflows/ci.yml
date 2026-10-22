@@ -23,6 +23,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Inspect toolchain
         run: xcrun swift --version
+      - name: Refresh Homebrew for formula compatibility checks
+        run: brew update
       - name: Test and build
         run: make test test-distribution build
       - name: Check standalone install

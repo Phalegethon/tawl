@@ -27,6 +27,8 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: "1"
       HOMEBREW_NO_ANALYTICS: "1"
     steps:
+      - name: Refresh Homebrew
+        run: brew update
       - name: Install the published tap and check basic commands
         shell: bash
         run: |
@@ -34,6 +36,7 @@ jobs:
           version=${REQUESTED_VERSION:-${PUBLISHED_TAG#v}}
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           brew tap phalegethon/tawl https://github.com/Phalegethon/tawl
+          brew readall --os=all --arch=all phalegethon/tawl
           brew install phalegethon/tawl/tawl
           test "$(tawl --version)" = "tawl $version"
           brew test phalegethon/tawl/tawl
