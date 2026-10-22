@@ -61,7 +61,10 @@ seed_previous_release() {
   local restore_commit
   test "$(git -C "$tap" branch --show-current)" = main
   restore_commit=$(git -C "$tap" rev-parse HEAD)
-  brew uninstall phalegethon/tawl/tawl
+  # Upgrades may retain an unlinked old keg; remove all TAWL versions before
+  # reseeding so the next install really starts from the historical release.
+  brew uninstall --force phalegethon/tawl/tawl
+  test ! -d "$prefix/Cellar/tawl"
   git -C "$tap" fetch --depth=1 origin "$baseline_commit"
   git -C "$tap" checkout --detach "$baseline_commit"
   brew install phalegethon/tawl/tawl
