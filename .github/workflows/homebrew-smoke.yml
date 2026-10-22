@@ -1,0 +1,49 @@
+name: Published Homebrew smoke test
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Published version to test, without v (for example 0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  homebrew:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    env:
+      REQUESTED_VERSION: ${{ inputs.version }}
+      PUBLISHED_TAG: ${{ github.event.release.tag_name }}
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_ANALYTICS: "1"
+    steps:
+      - name: Install the published tap and check basic commands
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=${REQUESTED_VERSION:-${PUBLISHED_TAG#v}}
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          brew tap phalegethon/tawl https://github.com/Phalegethon/tawl
+          brew install phalegethon/tawl/tawl
+          test "$(tawl --version)" = "tawl $version"
+          brew test phalegethon/tawl/tawl
+          tawl update check
+          tawl status --sample 0.1s
+      - name: Remove the runner installation
+        if: always()
+        shell: bash
+        run: |
+          if brew list --formula phalegethon/tawl/tawl >/dev/null 2>&1; then
+            brew uninstall phalegethon/tawl/tawl
+          fi
+          brew untap phalegethon/tawl || true

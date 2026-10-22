@@ -1,0 +1,118 @@
+name: Prepare draft release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Compiled version to release, without v (for example 0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version && format('v{0}', inputs.version) || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            architecture: arm64
+          - runner: macos-15-intel
+            architecture: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+      REQUESTED_VERSION: ${{ inputs.version }}
+      RELEASE_REF_TYPE: ${{ github.ref_type }}
+      RELEASE_REF_NAME: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test and build release binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "$EXPECTED_ARCHITECTURE"
+          xcrun swift --version
+          make test test-distribution build
+          version=$(./tawl --version)
+          version=${version#tawl }
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if [[ "$RELEASE_REF_TYPE" == tag ]]; then
+            test "$RELEASE_REF_NAME" = "v$version"
+          else
+            test "$REQUESTED_VERSION" = "$version"
+          fi
+          printf '%s\n' "$version" > "version-$EXPECTED_ARCHITECTURE.txt"
+      - name: Sign and optionally notarize
+        env:
+          TAWL_SIGNING_CERTIFICATE_BASE64: ${{ secrets.TAWL_SIGNING_CERTIFICATE_BASE64 }}
+          TAWL_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.TAWL_SIGNING_CERTIFICATE_PASSWORD }}
+          TAWL_SIGNING_IDENTITY: ${{ secrets.TAWL_SIGNING_IDENTITY }}
+          TAWL_APPLE_ID: ${{ secrets.TAWL_APPLE_ID }}
+          TAWL_APPLE_APP_PASSWORD: ${{ secrets.TAWL_APPLE_APP_PASSWORD }}
+          TAWL_APPLE_TEAM_ID: ${{ secrets.TAWL_APPLE_TEAM_ID }}
+        run: ./scripts/sign-release.sh --binary ./tawl --status-file "SIGNING-$EXPECTED_ARCHITECTURE.txt"
+      - name: Package final assets and verify installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/package-release.sh --binary ./tawl --output dist
+          mv dist/SHA256SUMS "dist/SHA256SUMS-$EXPECTED_ARCHITECTURE"
+          mv "SIGNING-$EXPECTED_ARCHITECTURE.txt" "version-$EXPECTED_ARCHITECTURE.txt" dist/
+          ./scripts/install.sh --binary ./tawl --prefix "$RUNNER_TEMP/release smoke"
+          "$RUNNER_TEMP/release smoke/bin/tawl" --version
+          ./scripts/uninstall.sh --prefix "$RUNNER_TEMP/release smoke"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.architecture }}
+          path: dist/
+          if-no-files-found: error
+
+  draft:
+    needs: build
+    runs-on: macos-15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Verify merged assets and generate tap formula
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp dist/version-arm64.txt dist/version-x86_64.txt
+          version=$(cat dist/version-arm64.txt)
+          cmp LICENSE dist/LICENSE
+          cat dist/SHA256SUMS-arm64 dist/SHA256SUMS-x86_64 | LC_ALL=C sort -u > dist/SHA256SUMS
+          (cd dist && shasum -a 256 -c SHA256SUMS)
+          ./scripts/generate-formula.sh --version "$version" --checksums dist/SHA256SUMS --output dist/tawl.rb
+          ruby -c dist/tawl.rb
+          printf 'RELEASE_TAG=v%s\n' "$version" >> "$GITHUB_ENV"
+          {
+            printf 'TAWL %s for macOS 15 or newer.\n\n' "$version"
+            cat dist/SIGNING-arm64.txt dist/SIGNING-x86_64.txt
+            printf '\nVerify downloaded assets against SHA256SUMS. Raw executables support the standalone updater; archives include installation and removal scripts.\n'
+            printf '\nMaintainer review: verify both architectures, signing status and checksums; copy tawl.rb to Formula/tawl.rb in the repository, then publish this draft when ready.\n'
+          } > dist/release-notes.md
+      - name: Create or refresh draft only
+        shell: bash
+        run: ./scripts/prepare-draft-release.sh --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" --assets dist

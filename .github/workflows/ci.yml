@@ -1,0 +1,35 @@
+name: macOS checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect toolchain
+        run: xcrun swift --version
+      - name: Test and build
+        run: make test test-distribution build
+      - name: Check standalone install
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="$RUNNER_TEMP/TAWL install smoke"
+          ./scripts/install.sh --prefix "$prefix" --binary ./tawl
+          "$prefix/bin/tawl" --version
+          ./scripts/uninstall.sh --prefix "$prefix"
