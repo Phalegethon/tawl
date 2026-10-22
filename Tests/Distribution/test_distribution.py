@@ -38,9 +38,9 @@ class DistributionTests(unittest.TestCase):
         self.directory = Path(self.temporary.name).resolve()
         self.prefix = self.directory / "prefix with spaces"
 
-    def run_script(self, name, *args, expected=0, env=None):
+    def run_script(self, name, *args, expected=0, env=None, cwd=None):
         result = subprocess.run(["/bin/bash", str(ROOT / "scripts" / name), *map(str, args)],
-                                text=True, capture_output=True, env=env)
+                                text=True, capture_output=True, env=env, cwd=cwd)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
@@ -223,6 +223,58 @@ class DistributionTests(unittest.TestCase):
         calls = log.read_text()
         self.assertNotIn("release edit", calls)
         self.assertNotIn("release upload", calls)
+
+    def annotated_remote_with_lightweight_checkout_tag(self, different_commit=False):
+        def git(*arguments, cwd=None):
+            result = subprocess.run(["git", *map(str, arguments)], cwd=cwd,
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout.strip()
+
+        remote = self.directory / "remote.git"
+        source = self.directory / "source"
+        checkout = self.directory / "checkout"
+        git("init", "--bare", remote)
+        git("init", "--initial-branch=main", source)
+        git("config", "user.name", "Distribution Test", cwd=source)
+        git("config", "user.email", "distribution-test@example.invalid", cwd=source)
+        git("config", "core.hooksPath", "/dev/null", cwd=source)
+        git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "Fixture release", cwd=source)
+        release_commit = git("rev-parse", "HEAD", cwd=source)
+        git("-c", "tag.gpgsign=false", "tag", "-a", "v0.1.0", "-m", "Annotated release", cwd=source)
+        git("push", remote, "HEAD:refs/heads/main", "refs/tags/v0.1.0", cwd=source)
+        if different_commit:
+            git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "Different build", cwd=source)
+            git("push", remote, "HEAD:refs/heads/main", cwd=source)
+        git("clone", "--no-tags", "--branch", "main", remote, checkout)
+        build_commit = git("rev-parse", "HEAD", cwd=checkout)
+        git("update-ref", "refs/tags/v0.1.0", build_commit, cwd=checkout)
+        self.assertEqual(git("cat-file", "-t", "refs/tags/v0.1.0", cwd=checkout), "commit")
+        self.assertEqual(git("--git-dir", remote, "cat-file", "-t", "refs/tags/v0.1.0"), "tag")
+        return checkout, build_commit, release_commit, git
+
+    def test_annotated_remote_tag_accepts_matching_lightweight_checkout_tag_without_replacing_it(self):
+        assets, log, environment = self.release_environment("")
+        (self.directory / "commands/git").unlink()  # Exercise real local Git; GitHub remains offline.
+        checkout, build_commit, release_commit, git = self.annotated_remote_with_lightweight_checkout_tag()
+        self.assertEqual(build_commit, release_commit)
+        self.run_script("prepare-draft-release.sh", "--tag", "v0.1.0", "--commit", build_commit,
+                        "--assets", assets, env=environment, cwd=checkout)
+        self.assertIn("release upload v0.1.0", log.read_text())
+        self.assertEqual(git("cat-file", "-t", "refs/tags/v0.1.0", cwd=checkout), "commit")
+        self.assertEqual(git("rev-parse", "refs/tags/v0.1.0", cwd=checkout), build_commit)
+
+    def test_annotated_remote_tag_rejects_different_build_without_replacing_local_tag(self):
+        assets, log, environment = self.release_environment("")
+        (self.directory / "commands/git").unlink()
+        checkout, build_commit, release_commit, git = self.annotated_remote_with_lightweight_checkout_tag(True)
+        self.assertNotEqual(build_commit, release_commit)
+        result = self.run_script("prepare-draft-release.sh", "--tag", "v0.1.0", "--commit", build_commit,
+                                 "--assets", assets, expected=1, env=environment, cwd=checkout)
+        self.assertIn("existing tag does not point to the commit", result.stderr)
+        self.assertFalse(log.exists())
+        self.assertEqual(git("cat-file", "-t", "refs/tags/v0.1.0", cwd=checkout), "commit")
+        self.assertEqual(git("rev-parse", "refs/tags/v0.1.0", cwd=checkout), build_commit)
 
 
 if __name__ == "__main__":

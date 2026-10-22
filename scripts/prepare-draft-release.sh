@@ -23,11 +23,12 @@ for item in "tawl-$version-macos-arm64" "tawl-$version-macos-arm64.tar.gz" \
 done
 
 # A draft may be refreshed, but an existing tag must still identify the build.
-# An annotated tag is peeled to its commit after fetching the exact remote tag.
+# Fetch only into FETCH_HEAD so a checkout's lightweight tag stays untouched.
+# Peel the retrieved remote object, which may be an annotated tag, to its commit.
 tag_reference=$(git ls-remote --tags origin "refs/tags/$tag")
 if [[ -n "$tag_reference" ]]; then
-  git fetch --no-tags origin "refs/tags/$tag:refs/tags/$tag"
-  [[ $(git rev-parse "refs/tags/$tag^{commit}") == "$commit" ]] || fail 'existing tag does not point to the commit used for these binaries'
+  git fetch --no-tags origin "refs/tags/$tag"
+  [[ $(git rev-parse "FETCH_HEAD^{commit}") == "$commit" ]] || fail 'existing tag does not point to the commit used for these binaries'
 fi
 metadata=$(mktemp)
 trap 'rm -f "$metadata"' EXIT
