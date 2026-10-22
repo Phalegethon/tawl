@@ -1,4 +1,4 @@
-name: Published Homebrew smoke test
+name: Published Homebrew end-to-end test
 
 on:
   release:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Published version to test, without v (for example 0.1.0)"
+        description: "Published version to test, without v (0.2.0 or newer)"
         required: true
         type: string
 
@@ -18,32 +18,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-15-intel]
+        include:
+          - runner: macos-15
+            architecture: arm64
+          - runner: macos-15-intel
+            architecture: x86_64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       REQUESTED_VERSION: ${{ inputs.version }}
       PUBLISHED_TAG: ${{ github.event.release.tag_name }}
       HOMEBREW_NO_AUTO_UPDATE: "1"
       HOMEBREW_NO_ANALYTICS: "1"
+      EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
     steps:
+      - uses: actions/checkout@v4
       - name: Refresh Homebrew
         run: brew update
-      - name: Install the published tap and check basic commands
+      - name: Fresh install, live terminal and both upgrade paths
+        id: exercise
         shell: bash
-        run: |
-          set -euo pipefail
-          version=${REQUESTED_VERSION:-${PUBLISHED_TAG#v}}
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          brew tap phalegethon/tawl https://github.com/Phalegethon/tawl
-          brew readall --os=all --arch=all phalegethon/tawl
-          brew install phalegethon/tawl/tawl
-          test "$(tawl --version)" = "tawl $version"
-          brew test phalegethon/tawl/tawl
-          tawl update check
-          tawl status --sample 0.1s
-      - name: Remove the runner installation
+        run: bash scripts/homebrew-e2e.sh
+      - name: Save installation and terminal evidence
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: homebrew-e2e-${{ matrix.architecture }}
+          path: ${{ runner.temp }}/tawl-homebrew-e2e/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Remove the runner installation
+        # On failure/cancellation a timed-out brew descendant may still be
+        # running. Let hosted-runner teardown clean that isolated machine.
+        if: always() && steps.exercise.outcome == 'success'
         shell: bash
         run: |
           if brew list --formula phalegethon/tawl/tawl >/dev/null 2>&1; then

@@ -68,7 +68,7 @@ python3 -m unittest discover -s Tests/Distribution
 python3 Tests/Interaction/hardware_pty.py
 ```
 
-Native process-control and closure/report interaction checks are documented in [the interaction test guide](../Tests/Interaction/README.md). Distribution tests operate in temporary prefixes, preserving the developer's existing installations and recordings.
+Native process-control and closure/report interaction checks are documented in [the interaction test guide](../Tests/Interaction/README.md). That guide also covers the published Homebrew workflow: clean installation, a live `tawl` screen, and real upgrades through both Homebrew and TAWL on native ARM and Intel runners. Distribution unit tests operate in temporary prefixes; the Homebrew upgrade workflow is restricted to disposable hosted runners.
 
 ## References
 

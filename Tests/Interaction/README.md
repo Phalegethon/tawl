@@ -1,5 +1,51 @@
 # Terminal process control and report integration checks
 
+## Published Homebrew installation and upgrade
+
+The `homebrew-smoke.yml` workflow runs on separate native Apple Silicon and Intel
+macOS runners with Homebrew already available and no TAWL installation or tap.
+It uses the README's `brew tap` and `brew install` commands, then checks that
+bare `tawl` resolves through the runner's normal PATH to Homebrew's installed
+executable. No source build, local executable or PATH override is used.
+
+`installed_tui_pty.py` starts the installed release in a real pseudo-terminal
+through `zsh -f`, from a temporary directory outside the checkout. It checks
+advancing live samples, the monitoring screen, `q` exit, and terminal restoration.
+It does not terminate any monitored process. This exercises the CLI and terminal
+protocol; it does not automate the Terminal.app or Warp graphical applications.
+
+Each architecture also upgrades the real published 0.1.0 binary to the requested
+current release twice: once using `brew update` / `brew upgrade`, and once using
+`tawl update` with explicit confirmation in a pseudo-terminal. The live-monitor
+check runs again after each upgrade. The historical installation is seeded with
+the official Homebrew-7-compatible formula at
+`6eecd0e5f7db5de3272d340c299abaed73632084`; the disposable runner's tap returns to
+`main` before either upgrade. Public tags and release assets are never changed.
+
+Trigger against a published version newer than 0.1.0:
+
+```sh
+gh workflow run homebrew-smoke.yml --repo Phalegethon/tawl -f version=0.2.0
+```
+
+The workflow saves command logs, terminal transcripts and JSON assertions as
+`homebrew-e2e-arm64` and `homebrew-e2e-x86_64` artifacts for 14 days, including on
+failure. Successful runs remove their installation; failed or cancelled runs
+rely on hosted-runner teardown to avoid racing a timed-out Homebrew subprocess.
+`scripts/homebrew-e2e.sh` refuses
+to run outside disposable GitHub-hosted macOS runners, so it cannot accidentally
+downgrade a developer's local installation.
+
+The read-only live-monitor probe can also check an existing local installation:
+
+```sh
+python3 Tests/Interaction/installed_tui_pty.py \
+  --expected-version 0.2.0 --expected-architecture "$(uname -m)" \
+  --brew-prefix "$(brew --prefix)" --output work/installed-tui
+```
+
+## Synthetic process control and comparison
+
 `ClosurePTYHarness.swift` runs the real `TerminalUI` against synthetic snapshots
 and an explicitly injected `ClosureSpy`. The spy only logs calls; it never
 constructs `NativeProcessController` and never signals a process. The Python
