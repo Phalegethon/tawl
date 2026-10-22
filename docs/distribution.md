@@ -1,8 +1,10 @@
 # Distribution and release maintenance
 
+This guide is for maintainers. Users should follow the [installation guide](installation.md), which makes Homebrew the primary path and documents the standalone alternative.
+
 TAWL runs on macOS 15 or later. Version is defined in `Sources/TawlCore/BuildInfo.swift`; release tags use `vX.Y.Z`. The initial release source is `Phalegethon/tawl`.
 
-## Build and install locally
+## Build and install a development checkout
 
 ```sh
 make build
@@ -31,6 +33,10 @@ Each release has one raw executable and one convenience archive per architecture
 - MIT `LICENSE` and per-architecture signing status
 
 The self-updater downloads the raw executable and verifies the SHA-256 digest in GitHub's release metadata, its Mach-O architecture and its reported version before replacement. It does not extract a remote archive or execute a remote installation script. Published stable versions must have complete assets before publication; drafts and prereleases are not offered as normal updates.
+
+## Signing policy
+
+Current releases use ad hoc signatures and are not Apple-notarized. Developer ID signing and notarization are deferred; they are optional future maintainer work, not a prerequisite for using TAWL. Homebrew verifies archive checksums and owns the installation, but does not confer Apple Developer ID identity or notarization. No installation path disables Gatekeeper or removes quarantine attributes. The [release preparation guide](../packaging/RELEASE.md) retains the optional signing configuration for future use.
 
 ## Prepare a release
 
@@ -62,7 +68,7 @@ python3 -m unittest discover -s Tests/Distribution
 python3 Tests/Interaction/hardware_pty.py
 ```
 
-Native process-control and closure/report interaction checks are documented in `Tests/Interaction/README.md`. Distribution tests operate in temporary prefixes, preserving the developer's existing installations and recordings.
+Native process-control and closure/report interaction checks are documented in [the interaction test guide](../Tests/Interaction/README.md). Distribution tests operate in temporary prefixes, preserving the developer's existing installations and recordings.
 
 ## References
 

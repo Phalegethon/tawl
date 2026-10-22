@@ -1,12 +1,18 @@
 # TAWL
 
-**Terminal Activity & Workload Lens** — understand what is loading your Mac, from your terminal.
+**Terminal Activity & Workload Lens**
 
-TAWL groups processes by application, project and usage category, shows CPU core and GPU activity, and helps investigate memory pressure. Inspect a process, review which application it affects, confirm termination, then compare system resources before and after with exportable charts.
+See what is loading your Mac. Follow CPU cores, inspect memory pressure, and understand resource use by application or project — from one terminal window.
 
-Requires **macOS 15 or later**. Apple Silicon and Intel release builds are separate. English is the default interface language; Turkish is available with `--lang tr`. No Python, Node.js or Swift toolchain is required to run a release binary.
+**macOS 15+ · Apple Silicon & Intel · English / Turkish · MIT**
+
+[Install](#install-with-homebrew) · [See it in action](#see-it-in-action) · [Controls](#a-few-keys-to-get-started) · [Usage guide](docs/usage.md)
+
+<a id="installation"></a>
 
 ## Install with Homebrew
+
+The recommended way to install and update TAWL:
 
 ```sh
 brew tap phalegethon/tawl https://github.com/Phalegethon/tawl
@@ -14,123 +20,97 @@ brew install phalegethon/tawl/tawl
 tawl
 ```
 
-The tap and formula live in this repository. Homebrew owns this installation and handles its upgrades.
+No Swift, Python or Node.js toolchain is needed to run the released application.
 
-## Install without Homebrew
-
-Download the archive matching your Mac from [Releases](https://github.com/Phalegethon/tawl/releases/latest): `macos-arm64` for Apple Silicon or `macos-x86_64` for Intel. Verify it against the release's `SHA256SUMS`, extract it and run the included installer:
+Already installed?
 
 ```sh
-bash install.sh
+brew update
+brew upgrade phalegethon/tawl/tawl
 ```
 
-The default prefix is `~/.local`. If `~/.local/bin` is not already in your shell's PATH, the installer prints the line to add to your shell configuration. It does not edit that configuration automatically. A custom prefix is supported:
+[Installation, troubleshooting and removal →](docs/installation.md)
 
-```sh
-bash install.sh --prefix "$HOME/.local"
-export PATH="$HOME/.local/bin:$PATH"
-tawl
-```
+## See it in action
 
-Release signing status is stated in the release notes. An ad hoc signature is not Apple Developer ID signing or notarization. TAWL does not disable Gatekeeper or remove quarantine attributes.
+### Find the workload behind the load
 
-## Commands
+Start with applications, switch to projects or usage categories, and open the CPU/GPU view when a build or local model gets busy. CPU history is shown per logical core; GPU activity is shown per device when available.
 
-```sh
-tawl                                  # Live monitor
-tawl --version
-tawl status --sample 3s                # Short system report
-tawl status --json
-tawl watch --record session.tawl       # Explicit recording
-tawl record --duration 10m --output session.tawl
-tawl report session.tawl --last 5m     # Offline analysis
-tawl report session.tawl --json
-```
+![TAWL showing application resource use, CPU core and GPU activity, and workload grouping](docs/media/tawl-overview.gif)
 
-Legacy `.nabiz` recordings remain readable. Recordings are opt-in and may contain process and project names; treat them as private data.
+### Review a process. See what changes.
 
-## Language
+Open the termination panel, check the affected application, and explicitly confirm. TAWL then compares system CPU, memory pressure and swap before and after the request. Export the comparison as a standalone HTML report with charts.
 
-Since **0.2.0**, English is the default, regardless of your operating system locale. Use `--lang en` or `--lang tr` for a command, or set `TAWL_LANG` for your shell:
+![TAWL process selection, affected-application confirmation, and before-and-after resource charts](docs/media/tawl-process-review.gif)
 
-```sh
-tawl --lang tr
-TAWL_LANG=tr tawl
-TAWL_LANG=tr tawl --lang en             # The command-line flag takes priority
-```
+*Both animations use TAWL's actual terminal renderer with synthetic demo data. They are walkthroughs, not performance benchmarks; resource changes alone do not prove causation.*
 
-Only `en` and `tr` are supported. Project documentation is maintained in English.
+Prefer still images? [Workload overview](docs/media/tawl-overview.png) · [Before/after comparison](docs/media/tawl-process-review.png)
 
-## Updates
+## A few keys to get started
 
-Upgrade an existing installation to get the latest language support:
-
-```sh
-tawl update check                     # Check for a newer stable release
-tawl update --check                   # Same check
-tawl update                           # Show version and ask before installing
-tawl update --yes                     # Explicit unattended update
-```
-
-When launched, the interactive monitor checks for releases in the background, at most once per day, and displays a notice when a newer version is available. It never installs an update automatically. Monitoring works offline; failed checks do not mean the installed version is current. Only release metadata is requested from GitHub; process measurements are not uploaded.
-
-To disable automatic checks:
-
-```sh
-tawl --no-update-check
-# Or persist this environment setting:
-export TAWL_NO_UPDATE_CHECK=1
-```
-
-Homebrew installs delegate updates to Homebrew. You can also run `brew update` followed by `brew upgrade phalegethon/tawl/tawl` directly. Standalone installs verify the downloaded binary's SHA-256 digest, architecture and version before replacing the installed executable. Failed verification leaves the current binary intact. Source checkouts are rebuilt by the developer rather than overwritten by the updater.
-
-## Main controls
-
-| Key | Action |
+| Task | Keys |
 | --- | --- |
-| ↑/↓ or j/k | Select workload or process |
-| Enter / i | Open details and process assessment |
-| Tab | Applications → Projects → Usage categories |
-| 1–5 / r | Sort columns / reverse order |
-| g / [ / ] | Toggle CPU/GPU view / hardware page |
-| b | Memory and swap investigation |
-| x | Open the process closure dialog |
-| e | Open the last closure comparison |
-| d (comparison) | Export standalone HTML with charts |
-| h / ← / → | History and samples |
-| Space | Freeze the displayed frame; collection continues |
-| / / ? / q | Search / help / quit |
+| Select a workload; inspect its processes | `↑` / `↓`, then `Enter` or `i` |
+| Group by application, project or usage category | `Tab` |
+| Sort by name, CPU, footprint, memory change or members | `1`–`5`; `r` reverses |
+| Show/hide CPU cores and GPU activity | `g`; `[` / `]` changes page |
+| Investigate memory and swap | `b` |
+| Review a process for termination | `x` |
+| Reopen the last comparison; export it | `e`, then `d` |
+| Search, get help, quit | `/`, `?`, `q` |
 
-Closing a process always requires a separate confirmation. TAWL shows the affected application, validates the process identity immediately before sending SIGTERM, protects system/terminal infrastructure, and distinguishes a sent request from a confirmed exit. It does not escalate automatically to SIGKILL. Comparisons show observed changes, not proof that closing one process caused every change.
+Termination always needs a separate confirmation. TAWL rechecks the process identity, protects system and terminal infrastructure, and reports whether the process actually exited. It does not automatically escalate to SIGKILL.
 
-## What the numbers mean
+## Reports, recordings and language
 
-- CPU in a process row uses **core equivalents**: 1.00 means one logical core. System CPU is a percentage of total capacity.
-- CPU core history is shown individually. GPU utilization is per device when the driver exposes it; per-GPU-core load is not available.
-- Memory is the process physical footprint. It is not a guaranteed amount recoverable by closing that process.
-- Swap is system-wide. TAWL cannot identify exact per-process swap ownership or promise when swap usage will drop. It shows pressure, swap traffic and memory candidates together.
-- Missing or inaccessible data is marked explicitly. High consumption alone is not proof of a bottleneck, a leak or an unused application.
+```sh
+tawl status --sample 3s                  # Quick resource report
+tawl status --json                       # Machine-readable output
+tawl watch --record session.tawl         # Monitor and record
+tawl report session.tawl --last 5m        # Inspect a recording offline
+tawl --lang tr                           # Switch to Turkish
+```
 
-[Detailed usage guide](docs/usage.md) · [Product scope](PRODUCT.md) · [Measurement research](docs/research.md)
+English is the default. Set `TAWL_LANG=tr` for a persistent shell preference; `--lang en|tr` overrides it. Documentation is in English.
 
-## Build and test
+Recordings are opt-in, remain local, and may contain application and project names. Legacy `.nabiz` recordings remain readable. [Full command reference →](docs/usage.md)
 
-Development requires Xcode with Swift 6 and the macOS SDK.
+## Updates and distribution
+
+`tawl update check` checks for a new stable release. `tawl update` asks before applying it and delegates to Homebrew for Homebrew installations. The live monitor also checks at most once a day in the background; it never installs updates automatically or uploads process measurements. Disable automatic checks with `--no-update-check` or `TAWL_NO_UPDATE_CHECK=1`.
+
+**Current signing status:** release binaries are ad-hoc signed and are **not Developer ID signed or notarized**. Developer ID signing and notarization are deferred. Homebrew is our primary installation route; it does not confer Apple notarization. Browser-downloaded binaries may be blocked by Gatekeeper. No installer disables macOS security protections.
+
+<details>
+<summary>Other installation methods</summary>
+
+Prebuilt archives and source builds remain available. Follow the [standalone installation guide](docs/installation.md#alternative-standalone-archive) for architecture selection, checksum verification, installation and updates. Standalone installs use `tawl update`; source checkouts are rebuilt by the developer.
+
+</details>
+
+## Read the numbers correctly
+
+- **CPU:** a process value of `1.00` means one logical core; system CPU is a percentage of total capacity.
+- **Memory:** physical footprint is not a guaranteed amount that closing a process will free.
+- **Swap:** system-wide measurements cannot identify exact per-process swap ownership or promise when swap will drop.
+- **Missing data:** inaccessible measurements are marked explicitly. High usage alone does not establish a bottleneck, leak or unused application.
+
+[Measurement research](docs/research.md) · [Product scope](PRODUCT.md)
+
+## Contribute
+
+Build from source with Xcode, Swift 6 and the macOS SDK:
 
 ```sh
 make build
 make test
 ./tawl
-make install PREFIX="$HOME/.local"
 ```
 
-Additional checks and release preparation are documented in [Distribution](docs/distribution.md). The release workflow builds each architecture and prepares a draft release for review.
-
-## Uninstall
-
-Homebrew: `brew uninstall phalegethon/tawl/tawl`.
-
-Standalone: run the included `bash uninstall.sh --prefix "$HOME/.local"`. It removes the owned executable and receipt, preserving recordings, reports and unrelated files. Automatic-check cache data may remain in the user's cache directory.
+[Distribution and release maintenance](docs/distribution.md) · [How the demos are made](docs/media/README.md)
 
 ## License
 

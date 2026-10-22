@@ -1,5 +1,9 @@
 # Preparing a release
 
+This is a maintainer guide. Homebrew is the primary user installation path; see
+the [installation guide](../docs/installation.md) for installation, updates and the
+standalone archive alternative.
+
 The compiled `tawl --version` output is the version authority. The release
 workflow checks it against the pushed `vX.Y.Z` tag or manual version input.
 Both macOS 15 runners build and test independently: `macos-15` for Apple Silicon,
@@ -30,11 +34,24 @@ formulae; the published install smoke also evaluates every OS/architecture varia
 Keep the macOS-only requirement at the top level and its version requirement
 inside `on_macos` to remain compatible with Homebrew 7.
 
-## Signing
+## Current signing policy
 
-Without signing secrets, CI applies an **ad-hoc signature**. This does not
+Developer ID signing and Apple notarization are deferred. Current releases use
+**ad hoc signatures and are not notarized**. Homebrew manages installation and
+checks archive integrity; it does not convert these signatures into Apple
+Developer ID identity or notarization. Users need no Apple Developer Program
+membership to install or use TAWL.
+
+Without signing secrets, CI applies an **ad hoc signature**. This does not
 authenticate the developer and is **not notarization**. macOS may block a build
 downloaded through a browser. No script removes quarantine or changes Gatekeeper.
+
+## Optional future Developer ID signing and notarization
+
+The following configuration is retained for maintainers who later choose to
+enable Apple distribution signing. It is not required for the current Homebrew
+or standalone release path. Do not describe a release as notarized until Apple
+has accepted its actual signed artifact.
 
 For Developer ID signing, configure repository Actions secrets:
 

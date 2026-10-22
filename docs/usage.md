@@ -4,57 +4,50 @@
 
 It answers “Is the machine under pressure?”, “Which applications consume resources?” and “What changed during the slowdown?” with measurement time, scope and explanation. Enter opens the process list; a second Enter opens the selected process's evidence and recommendations.
 
-## Run from source
+## Install and run
 
-The `tawl` binary built in this directory runs directly without installation on PATH:
-
-```sh
-cd tawl
-./tawl
-```
-
-Use the existing Xcode/Swift tools to rebuild:
+Use the [installation guide](installation.md) for the recommended Homebrew setup, updates and uninstall. After installation, launch the monitor from any directory:
 
 ```sh
-make build
-make test
+tawl
 ```
 
-No external Swift package, Homebrew package, daemon, web server or privileged helper is installed by this workflow. The first validated development environment was **Apple Silicon, macOS 27.0.1, Swift 6.4**. The initial macOS 15 deployment setting was not itself proof of compatibility; the 0.1.0 release was subsequently built and tested on hosted macOS 15 ARM and Intel runners. Linux and Windows are not supported.
+TAWL requires macOS 15 or later; Apple Silicon and Intel release binaries are available. The standalone archive is an alternative when you do not use Homebrew.
 
 ## Language
 
 Language selection is available from **0.2.0**. English is the default; Turkish is available explicitly:
 
 ```sh
-./tawl --lang en
-./tawl --lang tr
-TAWL_LANG=tr ./tawl
-TAWL_LANG=tr ./tawl --lang en
+tawl --lang en
+tawl --lang tr
+TAWL_LANG=tr tawl
+TAWL_LANG=tr tawl --lang en
 ```
 
 The command-line `--lang en|tr` setting overrides `TAWL_LANG`. If neither is set, TAWL uses English, independently of the OS locale. The selected language applies to interface text and human-readable output; metric meanings, keyboard controls and machine-readable data contracts remain unchanged. Project documentation is in English.
 
 ## Upgrade an installed version
 
+For the recommended Homebrew installation:
+
 ```sh
-tawl update check
-tawl update
+brew update && brew upgrade phalegethon/tawl/tawl
 tawl --version
 ```
 
-`tawl update` shows the candidate version and asks for confirmation. Homebrew installs delegate to Homebrew; alternatively run `brew update` and then `brew upgrade phalegethon/tawl/tawl`. Standalone installs verify the downloaded executable before replacement. Source checkouts use `make build`. Recordings and existing reports are preserved.
+`tawl update check` checks explicitly; `tawl update` shows the candidate and asks before applying it. Homebrew-managed installations delegate to Homebrew. Standalone installations verify the executable before replacement. Source checkouts use `make build`. Recordings and existing reports are preserved. See [installation](installation.md) for both installation paths and uninstall instructions.
 
 ## Commands
 
 ```sh
-./tawl status --sample 3s
-./tawl status --json
-./tawl watch --record ./session.tawl
-./tawl record --duration 10m --output ./session.tawl
-./tawl report ./session.tawl --last 5m
-./tawl report ./session.tawl --json
-./tawl --help
+tawl status --sample 3s
+tawl status --json
+tawl watch --record ./session.tawl
+tawl record --duration 10m --output ./session.tawl
+tawl report ./session.tawl --last 5m
+tawl report ./session.tawl --json
+tawl --help
 ```
 
 `status` takes its own short sample. `report` reads the explicitly supplied file offline; it does not measure the computer's current load. `--last` is relative to the recording's final sample. Durations accept `s`, `m` and `h`; `status --sample` accepts 0.1–10 seconds and recording duration is capped at 24 hours. `record` defaults to 60 seconds; the file-size limit may stop it earlier.
@@ -96,7 +89,7 @@ The live interface fills the terminal's content area and uses an alternate scree
 
 CPU is cyan, GPU purple, memory amber, disk blue and network green. High consumption makes the **corresponding numeric cell** yellow/red. `CPU!`, `RAM!` or `Δ!` beside the name identifies the resource needing attention. `RAM!` refers to footprint, not a physical RAM percentage.
 
-Investigation thresholds are **CPU ≥1 core yellow, ≥2 red**; **footprint ≥2 GiB yellow, ≥4 red**; **memory growth ≥100 MiB in the latest interval yellow**. These are not bottleneck or leak diagnoses. Pressure history uses `▁` normal, `▄` warning, `█` critical and `·` missing. `NO_COLOR=1 ./tawl` disables colors while shapes, labels and numbers preserve meaning. The interface is designed for a dark terminal background.
+Investigation thresholds are **CPU ≥1 core yellow, ≥2 red**; **footprint ≥2 GiB yellow, ≥4 red**; **memory growth ≥100 MiB in the latest interval yellow**. These are not bottleneck or leak diagnoses. Pressure history uses `▁` normal, `▄` warning, `█` critical and `·` missing. `NO_COLOR=1 tawl` disables colors while shapes, labels and numbers preserve meaning. The interface is designed for a dark terminal background.
 
 Main monitoring and process charts show samples from **up to the latest 120 seconds**, not a uniform time axis. The displayed time range is labelled. When multiple samples share a column, the peak is drawn; any missing sample produces `·`. Collection gaps over five seconds are also marked. System CPU uses 0–100%; disk/network directions share an automatic scale. Selected-workload charts label their automatic scales. Row CPU bars are relative to total logical-core capacity; row memory bars are relative to **the largest footprint in that list**, not RAM occupancy.
 
@@ -215,8 +208,24 @@ The reader validates file/line sizes and numbers; malformed interior lines and u
 
 ## Development structure
 
+The `tawl` binary built in this directory runs directly without installation on PATH:
+
+```sh
+cd tawl
+./tawl
+```
+
+Use the existing Xcode/Swift tools to rebuild:
+
+```sh
+make build
+make test
+```
+
+No external Swift package, Homebrew package, daemon, web server or privileged helper is installed by this workflow. The first validated development environment was **Apple Silicon, macOS 27.0.1, Swift 6.4**. The initial macOS 15 deployment setting was not itself proof of compatibility; the 0.1.0 release was subsequently built and tested on hosted macOS 15 ARM and Intel runners. Linux and Windows are not supported.
+
 `CTawl` provides native counters and the terminal bridge. `TawlCore` handles measurement deltas, attribution, interpretation, history and terminal presentation. `Tawl` connects the CLI. Paths in `RawReading` stay in memory; `Snapshot` is the persistent measurement model.
 
 Rendering uses the alternate screen buffer and absolute cursor positioning (CUP), emits no LF, and disables automatic wrapping for the session. Vertical wheel input supports SGR and legacy X10. Supported saved modes are restored on exit; this does not guarantee the host terminal's scrollbar visibility.
 
-[Research and use cases](research.md) · [Product scope](../PRODUCT.md) · [Installation and updates](../README.md)
+[Research and use cases](research.md) · [Product scope](../PRODUCT.md) · [Installation and updates](installation.md)
