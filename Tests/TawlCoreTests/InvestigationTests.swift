@@ -5,8 +5,17 @@ final class InvestigationTests:XCTestCase {
     func snapshot(_ t:Double,count:Int=25)->Snapshot {
         var s=Snapshot(timestamp:Date(timeIntervalSince1970:1_790_000_000+t),monotonicTime:t)
         s.intervalSeconds=2;s.logicalCPUCount=12;s.cpuPercent=30;s.pressure = .warning
-        s.processes=(0..<count).map { index in
-            ProcessSample(id:"\(index):100",pid:Int32(100+index),name:index==0 ? "Render worker":"Task \(index)",applicationID:"app:fixture",applicationName:"Test Editor (sentetik)",projectID:nil,projectName:nil,projectEvidence:nil,cpuCores:index==0 ? 2.5:0.001,footprintBytes:index==0 ? 5_368_709_120:536_870_912,memoryDeltaBytes:0,diskReadBytesPerSecond:0,diskWriteBytesPerSecond:0,ageSeconds:10_000+t,canReviewClosure:true)
+        s.processes=(0..<count).map { index -> ProcessSample in
+            let name: String = index == 0 ? "Render worker" : "Task \(index)"
+            let cpu: Double = index == 0 ? 2.5 : 0.001
+            let footprint: UInt64 = index == 0 ? 5_368_709_120 : 536_870_912
+            return ProcessSample(
+                id: "\(index):100", pid: Int32(100 + index), name: name,
+                applicationID: "app:fixture", applicationName: "Test Editor (sentetik)",
+                projectID: nil, projectName: nil, projectEvidence: nil,
+                cpuCores: cpu, footprintBytes: footprint, memoryDeltaBytes: 0,
+                diskReadBytesPerSecond: 0, diskWriteBytesPerSecond: 0,
+                ageSeconds: 10_000 + t, canReviewClosure: true)
         }
         s.totalProcessCount=count;return s
     }
