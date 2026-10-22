@@ -14,18 +14,18 @@ advancing live samples, the monitoring screen, `q` exit, and terminal restoratio
 It does not terminate any monitored process. This exercises the CLI and terminal
 protocol; it does not automate the Terminal.app or Warp graphical applications.
 
-Each architecture also upgrades the real published 0.1.0 binary to the requested
+Each architecture also upgrades the real published 0.2.0 binary to the requested
 current release twice: once using `brew update` / `brew upgrade`, and once using
 `tawl update` with explicit confirmation in a pseudo-terminal. The live-monitor
 check runs again after each upgrade. The historical installation is seeded with
-the official Homebrew-7-compatible formula at
-`6eecd0e5f7db5de3272d340c299abaed73632084`; the disposable runner's tap returns to
+the official formula at
+`c7da9fc5fc13612bf49710d26f88d6853b5c0f9c`; the disposable runner's tap returns to
 `main` before either upgrade. Public tags and release assets are never changed.
 
-Trigger against a published version newer than 0.1.0:
+Trigger against a published version newer than 0.2.0:
 
 ```sh
-gh workflow run homebrew-smoke.yml --repo Phalegethon/tawl -f version=0.2.0
+gh workflow run homebrew-smoke.yml --repo Phalegethon/tawl -f version=0.2.1
 ```
 
 The workflow saves command logs, terminal transcripts and JSON assertions as
@@ -40,7 +40,7 @@ The read-only live-monitor probe can also check an existing local installation:
 
 ```sh
 python3 Tests/Interaction/installed_tui_pty.py \
-  --expected-version 0.2.0 --expected-architecture "$(uname -m)" \
+  --expected-version 0.2.1 --expected-architecture "$(uname -m)" \
   --brew-prefix "$(brew --prefix)" --output work/installed-tui
 ```
 

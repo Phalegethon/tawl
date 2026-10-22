@@ -90,10 +90,15 @@ instead of a conventionally named `homebrew-tawl` repository. Homebrew owns thos
 installs; use `brew upgrade` / `brew uninstall`, not the standalone scripts.
 
 Commit the generated formula to the default branch **before publishing**. The
-`Published Homebrew smoke test` workflow runs on release publication, or manually
+`Published Homebrew end-to-end test` workflow runs on release publication, or manually
 with a version input, on disposable Apple Silicon and Intel runners. It installs
-the real public formula, checks the version, update metadata and one status sample,
-then uninstalls. This does not modify the maintainer's local Homebrew installation.
+the real public formula, checks bare `tawl` in a live pseudo-terminal, and upgrades
+the previous published version through both `brew upgrade` and confirmed `tawl update`.
+Before tagging, set the baseline version and its immutable formula commit in
+`scripts/homebrew-e2e.sh` to the current published release. Both upgrade paths must
+reach the new version and pass the live-monitor checks before claiming validation.
+Successful runs uninstall their fixtures. These checks do not modify the
+maintainer's local Homebrew installation.
 
 ## Local packaging and checks
 

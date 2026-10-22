@@ -10,7 +10,8 @@ fi
 version=${REQUESTED_VERSION:-${PUBLISHED_TAG#v}}
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 test "$(uname -m)" = "$EXPECTED_ARCHITECTURE"
-test "$version" != 0.1.0
+baseline_version=0.2.0
+test "$version" != "$baseline_version"
 root=$(cd "$(dirname "$0")/.." && pwd)
 evidence="$RUNNER_TEMP/tawl-homebrew-e2e"
 mkdir -p "$evidence"
@@ -94,9 +95,9 @@ check_install() {
 check_install fresh-install
 echo "::endgroup::"
 
-# The baseline is the official 0.1.0 formula after its Homebrew 7 fix.
+# The baseline is the official 0.2.0 formula from the previous published release.
 # Only this disposable runner's tap checkout is moved; no remote ref is changed.
-baseline_commit=6eecd0e5f7db5de3272d340c299abaed73632084
+baseline_commit=c7da9fc5fc13612bf49710d26f88d6853b5c0f9c
 seed_previous_release() {
   local restore_commit
   test "$(git -C "$tap" branch --show-current)" = main
@@ -108,14 +109,14 @@ seed_previous_release() {
   git -C "$tap" fetch --depth=1 origin "$baseline_commit"
   git -C "$tap" checkout --detach "$baseline_commit"
   brew install phalegethon/tawl/tawl
-  test "$(tawl --version)" = 'tawl 0.1.0'
+  test "$(tawl --version)" = "tawl $baseline_version"
   test "$(/usr/bin/lipo -archs "$(command -v tawl)")" = "$EXPECTED_ARCHITECTURE"
   git -C "$tap" checkout main
   test "$(git -C "$tap" rev-parse HEAD)" = "$restore_commit"
   printf 'Upgrade baseline installed: %s\n' "$(tawl --version)"
 }
 
-echo "::group::README brew upgrade from 0.1.0"
+echo "::group::README brew upgrade from $baseline_version"
 seed_previous_release
 brew update
 brew upgrade phalegethon/tawl/tawl
@@ -123,17 +124,17 @@ check_install brew-upgrade
 tawl update check
 echo "::endgroup::"
 
-echo "::group::TAWL-managed Homebrew update from 0.1.0"
+echo "::group::TAWL-managed Homebrew update from $baseline_version"
 seed_previous_release
 tawl update check
 # The released updater requires a terminal and an explicit confirmation.
 python3 "$root/Tests/Interaction/installed_tui_pty.py" \
-  --confirm-update --previous-version 0.1.0 \
+  --confirm-update --previous-version "$baseline_version" \
   --expected-version "$version" --expected-architecture "$EXPECTED_ARCHITECTURE" \
   --brew-prefix "$prefix" --output "$evidence/tawl-update-confirmation"
 check_install tawl-update
 tawl update check
 echo "::endgroup::"
 
-printf 'PASS: %s fresh install, brew upgrade and tawl update -> %s; bare tawl opens and exits in every scenario.\n' \
-  "$EXPECTED_ARCHITECTURE" "$version" | tee "$evidence/result.txt"
+printf 'PASS: %s fresh install, brew upgrade and tawl update %s -> %s; bare tawl opens and exits in every scenario.\n' \
+  "$EXPECTED_ARCHITECTURE" "$baseline_version" "$version" | tee "$evidence/result.txt"
