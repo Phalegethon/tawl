@@ -2,7 +2,7 @@
 class Tawl < Formula
   desc "macOS terminal system monitor and flight recorder"
   homepage "https://github.com/Phalegethon/tawl"
-  version "0.2.0"
+  version "0.2.1"
   license "MIT"
 
   depends_on :macos
@@ -12,13 +12,13 @@ class Tawl < Formula
   end
 
   on_arm do
-    url "https://github.com/Phalegethon/tawl/releases/download/v0.2.0/tawl-0.2.0-macos-arm64.tar.gz"
-    sha256 "9de8094a9172cce77e5d069429d8fdcf7b0d78cf31b702f43516a649bd2a804f"
+    url "https://github.com/Phalegethon/tawl/releases/download/v0.2.1/tawl-0.2.1-macos-arm64.tar.gz"
+    sha256 "83a928a6244a28f95eb6996e1a19b0e2929946dfd30711ac425015086bb1f415"
   end
 
   on_intel do
-    url "https://github.com/Phalegethon/tawl/releases/download/v0.2.0/tawl-0.2.0-macos-x86_64.tar.gz"
-    sha256 "a328f996b6a16eca8c20fcf30e8661f562ba3c6f070c35ed4b180ae71de50dce"
+    url "https://github.com/Phalegethon/tawl/releases/download/v0.2.1/tawl-0.2.1-macos-x86_64.tar.gz"
+    sha256 "c866dd300c2300da39994624af26e34bcaf0decf1dca0bca3534dd83c1f8c0c0"
   end
 
   def install
