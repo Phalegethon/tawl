@@ -17,13 +17,13 @@ struct SemanticVersion: Comparable {
         let range = NSRange(string.startIndex..., in: string)
         guard string.utf8.count <= 200,
               let match = try NSRegularExpression(pattern: pattern).firstMatch(in: string, range: range), match.range == range else {
-            throw UpdateError("Invalid release version: \(string.prefix(200))")
+            throw UpdateError(L10n.text("Invalid release version: \(string.prefix(200))"))
         }
         let core = string.split(separator: "+", maxSplits: 1)[0].split(separator: "-", maxSplits: 1)
         numbers = core[0].split(separator: ".").map(String.init)
         prerelease = core.count == 2 ? core[1].split(separator: ".").map(String.init) : []
         guard !prerelease.contains(where: { Self.numeric($0) && $0.count > 1 && $0.first == "0" }) else {
-            throw UpdateError("Invalid numeric prerelease identifier.")
+            throw UpdateError(L10n.text("Invalid numeric prerelease identifier."))
         }
     }
 
@@ -62,7 +62,7 @@ struct UpdateRelease: Decodable {
 
     func validatedVersion() throws -> SemanticVersion {
         let parsed = try SemanticVersion(version)
-        guard !draft, !prerelease, parsed.prerelease.isEmpty else { throw UpdateError("Latest release metadata is not a stable published release.") }
+        guard !draft, !prerelease, parsed.prerelease.isEmpty else { throw UpdateError(L10n.text("Latest release metadata is not a stable published release.")) }
         return parsed
     }
 }
@@ -120,21 +120,21 @@ public final class UpdateService {
     func fetchRelease() throws -> UpdateRelease {
         do {
             let data = try transport(Self.endpoint, 1_048_576)
-            guard data.count <= 1_048_576 else { throw UpdateError("Release metadata exceeds the size limit.") }
+            guard data.count <= 1_048_576 else { throw UpdateError(L10n.text("Release metadata exceeds the size limit.")) }
             let release = try JSONDecoder().decode(UpdateRelease.self, from: data)
             _ = try release.validatedVersion()
             return release
         } catch {
-            throw UpdateError("Update check unavailable; installed version is \(currentVersion). \(error.localizedDescription)")
+            throw UpdateError(L10n.text("Update check unavailable; installed version is \(currentVersion). \(error.localizedDescription)"))
         }
     }
 
     private func result(for latest: String) throws -> UpdateCheckResult {
         let latestVersion = try SemanticVersion(latest), installed = try SemanticVersion(currentVersion)
         let newer = latestVersion > installed
-        let message = newer ? "TAWL \(latest) is available (installed \(currentVersion)). Run `tawl update` to install."
-            : latestVersion == installed ? "TAWL \(currentVersion) is the latest published stable release."
-            : "Installed TAWL \(currentVersion) is newer than the latest published stable release (\(latest))."
+        let message = newer ? L10n.text("TAWL \(latest) is available (installed \(currentVersion)). Run `tawl update` to install.")
+            : latestVersion == installed ? L10n.text("TAWL \(currentVersion) is the latest published stable release.")
+            : L10n.text("Installed TAWL \(currentVersion) is newer than the latest published stable release (\(latest)).")
         return UpdateCheckResult(latestVersion: latest, isUpdateAvailable: newer, message: message)
     }
 
@@ -200,7 +200,7 @@ public final class UpdateService {
     private func setNotice(_ latest: String?) {
         let checked = latest.flatMap { try? result(for: $0) }
         noticeLock.lock(); defer { noticeLock.unlock() }
-        storedNotice = checked?.isUpdateAvailable == true ? "Yeni sürüm · tawl update · v\(checked!.latestVersion)" : nil
+        storedNotice = checked?.isUpdateAvailable == true ? L10n.text("New release · tawl update · v\(checked!.latestVersion)") : nil
     }
 
     static func actualExecutableURL() -> URL {

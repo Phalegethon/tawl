@@ -83,7 +83,7 @@ Evidence is saved in `work/native-closure-pty/`.
 
 ## Return compatibility regression
 
-The 118×46 MANUEL-manager cases cover CR, LF, atomic/split CRLF,
+The 118×46 MANUAL-manager cases cover CR, LF, atomic/split CRLF,
 application-keypad Enter (including split SS3), inherited IGNCR/INLCR, and
 `i → Right → Space`. They assert default Cancel, no implicit submission and
 restoration of the original terminal flags. CRLF is one logical Return even
@@ -93,3 +93,19 @@ across reads; consecutive CR Returns remain distinct.
 runs the same guarded disposable native child using `i / Right / Space`, with
 real exit observation and HTML export; evidence goes to
 `work/native-closure-fallback-pty/`.
+
+## Language coverage
+
+The harnesses default to English. Set `TAWL_LANG=tr` to run the same keyboard,
+process-identity, confirmation and report assertions in Turkish. The shared
+`language_support.py` reads expected labels from the compiled source catalogs;
+behavioral assertions remain independent of translated labels. Use separate
+`CLOSURE_OUTPUT` directories when running both languages concurrently:
+
+```sh
+TAWL_LANG=en CLOSURE_OUTPUT=work/closure-en CLOSURE_FINAL_FEATURES=1 CLOSURE_EFFECTS=1 CLOSURE_CONTROLS=1 python3 Tests/Interaction/closure_pty.py
+TAWL_LANG=tr CLOSURE_OUTPUT=work/closure-tr CLOSURE_FINAL_FEATURES=1 CLOSURE_EFFECTS=1 CLOSURE_CONTROLS=1 python3 Tests/Interaction/closure_pty.py
+```
+
+Hardware checks finish a partially received frame before evaluating it and save
+ANSI output on failure. This avoids mistaking a split PTY read for a missing panel.

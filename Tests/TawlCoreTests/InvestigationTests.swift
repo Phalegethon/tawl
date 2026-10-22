@@ -11,7 +11,7 @@ final class InvestigationTests:XCTestCase {
             let footprint: UInt64 = index == 0 ? 5_368_709_120 : 536_870_912
             return ProcessSample(
                 id: "\(index):100", pid: Int32(100 + index), name: name,
-                applicationID: "app:fixture", applicationName: "Test Editor (sentetik)",
+                applicationID: "app:fixture", applicationName: "Test Editor (synthetic)",
                 projectID: nil, projectName: nil, projectEvidence: nil,
                 cpuCores: cpu, footprintBytes: footprint, memoryDeltaBytes: 0,
                 diskReadBytesPerSecond: 0, diskWriteBytesPerSecond: 0,
@@ -26,9 +26,9 @@ final class InvestigationTests:XCTestCase {
             XCTAssertGreaterThanOrEqual(frame.visibleRowIDs.count,minimum)
             XCTAssertTrue(frame.lines.allSatisfy{TerminalText.width($0)<=w})
             XCTAssertTrue(frame.lines.joined().contains("CPU+RAM!"))
-            XCTAssertFalse(frame.lines.joined().contains("Kimlik 100:"))
-            XCTAssertTrue(frame.lines.last!.contains("q çıkış"))
-            let header=frame.lines.first{$0.contains("1 SÜREÇ") && $0.contains("2 CPU") }!
+            XCTAssertFalse(frame.lines.joined().contains("Identity 100:"))
+            XCTAssertTrue(frame.lines.last!.contains("q quit"))
+            let header=frame.lines.first{$0.contains("1 PROCESS") && $0.contains("2 CPU") }!
             let location=header.distance(from:header.startIndex,to:header.range(of:"2 CPU")!.lowerBound)
             XCTAssertLessThan(location,68)
         }
@@ -43,17 +43,17 @@ final class InvestigationTests:XCTestCase {
         state.accept(next)
         XCTAssertEqual(state.selectedProcess?.id,selected)
         XCTAssertTrue(TerminalRenderer.render(state,width:80,height:24).visibleRowIDs.contains(selected!))
-        XCTAssertTrue(TerminalRenderer.render(state,width:100,height:30).lines.joined().contains("4 Δ BELLEK↓"))
+        XCTAssertTrue(TerminalRenderer.render(state,width:100,height:30).lines.joined().contains("4 Δ MEMORY↓"))
     }
     func testThreeGroupingModesAndRecommendationFilterAreDiscoverable() {
         var state=TerminalState();state.accept(snapshot(0));state.toggleGrouping()
         XCTAssertEqual(state.grouping,.project);state.toggleGrouping()
         XCTAssertEqual(state.grouping,.category)
-        XCTAssertTrue(TerminalRenderer.render(state,width:100,height:30).lines.joined().contains("KULLANIM ALANLARI"))
+        XCTAssertTrue(TerminalRenderer.render(state,width:100,height:30).lines.joined().contains("USAGE CATEGORIES"))
         state.toggleGrouping();XCTAssertEqual(state.grouping,.application)
         state.openDetails();state.toggleRecommendations()
         XCTAssertEqual(state.visibleProcesses.map(\.pid),[100])
-        XCTAssertTrue(TerminalRenderer.render(state,width:100,height:30).lines.joined().contains("ÖNERİLER"))
+        XCTAssertTrue(TerminalRenderer.render(state,width:100,height:30).lines.joined().contains("RECOMMENDATIONS"))
     }
     func testQuietCandidatesUseCompactEvidenceAndHistoricalModeIsClearlyLabeled() {
         var state=TerminalState()
@@ -62,14 +62,14 @@ final class InvestigationTests:XCTestCase {
         XCTAssertTrue(state.assessment(for:state.selectedProcess!).recommendations.contains{$0.kind == .quietMemory})
         state.processInfoVisible=true
         let live=TerminalRenderer.render(state,width:100,height:45).lines.joined()
-        XCTAssertTrue(live.contains("UZUN SÜREDİR AÇIK"))
+        XCTAssertTrue(live.contains("LONG-RUNNING"))
         state.toggleFrozen()
         XCTAssertTrue(state.assessment(for:state.selectedProcess!).recommendations.contains{$0.kind == .quietMemory})
         var busy=snapshot(622,count:2);busy.processes[1].cpuCores=3
         state.accept(busy)
         XCTAssertTrue(state.assessment(for:state.selectedProcess!).recommendations.contains{$0.kind == .quietMemory})
         let frozen=TerminalRenderer.render(state,width:100,height:45).lines.joined()
-        XCTAssertTrue(frozen.contains("CANLI KARAR DEĞİL"))
+        XCTAssertTrue(frozen.contains("NOT A LIVE DECISION"))
         state.toggleHistory()
         XCTAssertTrue(state.assessment(for:state.selectedProcess!).recommendations.contains{$0.kind == .quietMemory})
         state.toggleHistory();state.toggleFrozen()
@@ -107,7 +107,7 @@ final class InvestigationTests:XCTestCase {
         state.toggleGrouping();state.toggleGrouping();try save(state,143,68,"categories-143x68")
         var synthetic=TerminalState()
         for t in stride(from:0.0,through:620,by:2) {synthetic.accept(snapshot(t))}
-        synthetic.notice="SENTETİK SENARYO · eşik ve öneri görünümü testi"
+        synthetic.notice="SYNTHETIC SCENARIO · thresholds and recommendation view"
         synthetic.openDetails();synthetic.toggleRecommendations()
         try save(synthetic,143,45,"synthetic-candidates-143x45")
         synthetic.moveProcess(by:1);synthetic.processInfoVisible=true

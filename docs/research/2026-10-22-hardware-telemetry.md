@@ -13,7 +13,7 @@ CPU: host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, ...); mainta
 
 GPU: enumerate IOServiceMatching("IOAccelerator"), use IORegistryEntryGetRegistryEntryID for per-device identity, read PerformanceStatistics CFDictionary with type/range validation. Device Utilization % is a directly reported 0–100 device metric, not a cumulative counter to differentiate. Optional GPU Activity(%) fallback is established in Stats; separate Renderer Utilization % and Tiler Utilization % are engine metrics, never individual GPU cores. Read model (CFString or CFData) and gpu-core-count only as metadata. Absent/wrong-type/nonfinite/out-of-range values are unavailable. Do not hold last value as a current reading on collector failure.
 
-Suggested GPU wording: “Apple M2 Max · 38 çekirdek · Aygıt toplamı”; “Çekirdek bazında ölçüm sağlanmıyor”. Do not multiply device utilization by 38 and present it as measured active-core count, nor display 38 cloned meters.
+Suggested GPU wording: “Apple M2 Max · 38 cores · Whole device”; “Per-core measurements are unavailable”. Do not multiply device utilization by 38 and present it as measured active-core count, nor display 38 cloned meters.
 
 IOKit property keys are driver interfaces, not a guaranteed public GPU utilization contract. Capability-based fallback is necessary. Public Metal counter sample APIs instrument own command passes and do not establish a passive universal per-core meter for another app. Show system-wide scope, not LLM-specific attribution. CPU busy-time is not normalized compute throughput between E/P; the panel establishes distribution and saturation, not guaranteed bottleneck cause.
 

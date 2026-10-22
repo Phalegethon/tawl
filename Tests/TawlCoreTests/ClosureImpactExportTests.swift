@@ -32,15 +32,15 @@ final class ClosureImpactExportTests: XCTestCase {
     }
     func testReportContainsIdentityOutcomeAndAllBeforeAfterValues() throws {
         let html = ClosureImpactExporter.html(impact: try fixture(), status: .exitObserved, exportedAt: exportedAt)
-        for value in ["Browser Helper", "Browser", "PID 42", "42:100", "Süreç çıkışı doğrulandı",
-                      "75.0%", "25.0%", "−50.0 puan", "20.0 GiB", "19.0 GiB", "−1.0 GiB",
-                      "Normal", "Uyarı", "1.0 MiB/s", "0 B/s", "30 / 30 sn", "60 / 60 sn",
-                      "Sistem CPU", "Bellek baskısı", "Swap miktarı", "Swap yazımı", "Ölçüm tamamlandı"] {
+        for value in ["Browser Helper", "Browser", "PID 42", "42:100", "Process exit confirmed",
+                      "75.0%", "25.0%", "−50.0 pp", "20.0 GiB", "19.0 GiB", "−1.0 GiB",
+                      "Normal", "Warning", "1.0 MiB/s", "0 B/s", "30 / 30 s", "60 / 60 s",
+                      "System CPU", "Memory pressure", "Swap used", "Swap writes", "Measurement complete"] {
             XCTAssertTrue(html.contains(value), "Missing report field: \(value)")
         }
         XCTAssertEqual(html.components(separatedBy: "<svg ").count - 1, 4)
         XCTAssertEqual(html.components(separatedBy: "class=\"request-line\"").count - 1, 4)
-        XCTAssertTrue(html.contains("tek başına neden kanıtı değildir"))
+        XCTAssertTrue(html.contains("alone does not prove causation"))
         XCTAssertFalse(html.contains("<script")); XCTAssertFalse(html.contains("src=\"http"))
     }
     func testUntrustedLabelsAndRejectionDetailsAreEscapedEverywhere() throws {
@@ -51,14 +51,35 @@ final class ClosureImpactExportTests: XCTestCase {
         XCTAssertTrue(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
         XCTAssertTrue(html.contains("&lt;svg onload=alert(1)&gt; &amp; &quot;failure&quot;"))
     }
+    func testEnglishAndTurkishReportsLocalizeLabelsWithoutChangingEvidenceOrEscaping() throws {
+        let english = try L10n.withLanguage(.english) {
+            ClosureImpactExporter.html(impact: try fixture(hostile: true), status: .exitObserved, exportedAt: exportedAt)
+        }
+        let turkish = try L10n.withLanguage(.turkish) {
+            ClosureImpactExporter.html(impact: try fixture(hostile: true), status: .exitObserved, exportedAt: exportedAt)
+        }
+        XCTAssertTrue(english.contains("<html lang=\"en\">"))
+        XCTAssertTrue(english.contains("Affected application"))
+        XCTAssertTrue(turkish.contains("<html lang=\"tr\">"))
+        XCTAssertTrue(turkish.contains(try XCTUnwrap(TurkishCore.strings["Affected application"])))
+        XCTAssertTrue(turkish.contains(try XCTUnwrap(TurkishCore.strings["Process exit confirmed"])))
+        for html in [english, turkish] {
+            XCTAssertTrue(html.contains("75.0%")); XCTAssertTrue(html.contains("25.0%"))
+            XCTAssertTrue(html.contains("20.0 GiB")); XCTAssertTrue(html.contains("19.0 GiB"))
+            XCTAssertTrue(html.contains("PID 42")); XCTAssertTrue(html.contains("42:100"))
+            XCTAssertTrue(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
+            XCTAssertFalse(html.contains("<script>")); XCTAssertFalse(html.contains("<img src=x"))
+            XCTAssertEqual(html.components(separatedBy: "<svg ").count - 1, 4)
+        }
+    }
     func testPartialAndUnknownSamplesCannotClaimCompletionOrMeasuredZero() throws {
         let html = ClosureImpactExporter.html(impact: try fixture(elapsed: 12, missing: true),
             status: .waitingForExit, exportedAt: exportedAt)
-        XCTAssertTrue(html.contains("Kısmi rapor · 12 / 60 sn"))
-        XCTAssertTrue(html.contains("Dışa aktarıldığı andaki durum"))
-        XCTAssertTrue(html.contains("Ölçüm yok")); XCTAssertTrue(html.contains("Henüz gözlenmedi"))
-        XCTAssertTrue(html.contains("Kapanma henüz doğrulanmadı"))
-        XCTAssertFalse(html.contains("Ölçüm tamamlandı"))
+        XCTAssertTrue(html.contains("Partial report · 12 / 60 s"))
+        XCTAssertTrue(html.contains("State at export time"))
+        XCTAssertTrue(html.contains("No measurement")); XCTAssertTrue(html.contains("Not yet observed"))
+        XCTAssertTrue(html.contains("Exit not yet confirmed"))
+        XCTAssertFalse(html.contains("Measurement complete"))
         XCTAssertFalse(html.contains("data-observed="))
         XCTAssertTrue(html.contains("class=\"missing-region\""))
     }
@@ -71,7 +92,7 @@ final class ClosureImpactExportTests: XCTestCase {
         XCTAssertTrue(html.contains("0.0%")); XCTAssertTrue(html.contains("0 B/s"))
         XCTAssertTrue(html.contains("data-observed=\"0.000\""))
         XCTAssertTrue(html.contains("class=\"missing-region\""))
-        XCTAssertTrue(html.contains("Son kontrolde süreç hâlâ çalışıyordu"))
+        XCTAssertTrue(html.contains("Process still running at last check"))
         XCTAssertFalse(html.contains("<polyline"), "Separated interval segments must not bridge missing evidence")
     }
     func testExportIsAnImmutableSnapshotWithUniquePrivateFiles() throws {
@@ -85,8 +106,8 @@ final class ClosureImpactExportTests: XCTestCase {
         let two = try ClosureImpactExporter.write(impact: value, status: .exitObserved, directory: directory, exportedAt: exportedAt)
         XCTAssertNotEqual(one, two)
         XCTAssertEqual(try Data(contentsOf: one), original)
-        XCTAssertTrue(String(decoding: original, as: UTF8.self).contains("Kısmi rapor"))
-        XCTAssertTrue(try String(contentsOf: two, encoding: .utf8).contains("Ölçüm tamamlandı"))
+        XCTAssertTrue(String(decoding: original, as: UTF8.self).contains("Partial report"))
+        XCTAssertTrue(try String(contentsOf: two, encoding: .utf8).contains("Measurement complete"))
         XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: one.path)[.posixPermissions] as? NSNumber)?.intValue, 0o600)
         XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: directory.path)[.posixPermissions] as? NSNumber)?.intValue, 0o700)
         XCTAssertEqual(one.deletingLastPathComponent().standardizedFileURL, directory.standardizedFileURL)

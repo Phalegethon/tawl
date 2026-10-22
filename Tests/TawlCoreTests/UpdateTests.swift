@@ -26,6 +26,27 @@ final class UpdateTests: XCTestCase {
         XCTAssertTrue(result.message.contains("tawl update"))
     }
 
+    func testLocalizedUpdateMessagesPreserveVersionsCommandsAndCachedMetadata() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("tawl-localized-update-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = root.appendingPathComponent("check.json")
+        let english = makeService(cache: cache) { _, _ in self.release() }
+        let result = try L10n.withLanguage(.english) { try english.check() }
+        L10n.withLanguage(.english) { english.performAutomaticCheck() }
+        XCTAssertEqual(english.notice, "New release · tawl update · v0.2.0")
+        let turkish = makeService(cache: cache) { _, _ in
+            XCTFail("Language changes must reuse language-neutral release metadata")
+            return Data()
+        }
+        L10n.withLanguage(.turkish) { turkish.performAutomaticCheck() }
+        let template = try XCTUnwrap(TurkishUpdates.strings["New release · tawl update · v{0}"])
+        XCTAssertEqual(turkish.notice, template.replacingOccurrences(of: "{0}", with: "0.2.0"))
+        XCTAssertEqual(result.latestVersion, "0.2.0")
+        XCTAssertTrue(result.isUpdateAvailable)
+        XCTAssertTrue(result.message.contains("`tawl update`"))
+        XCTAssertTrue(turkish.notice?.contains("tawl update") == true)
+    }
+
     func testUnavailableMalformedAndUnstableMetadataNeverClaimsCurrent() {
         let badPayloads: [Data] = [Data("{}".utf8), release(draft: true), release(prerelease: true), release(version: "0.2.0-beta.1")]
         for payload in badPayloads {

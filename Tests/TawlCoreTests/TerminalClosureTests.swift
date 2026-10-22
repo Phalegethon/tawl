@@ -24,9 +24,9 @@ final class TerminalClosureTests: XCTestCase {
         s.confirmClosure(using: controller, now: 101)
         XCTAssertTrue(controller.submitted.isEmpty)
         s.dismissClosure(using: controller)
-        controller.failure = "macOS kimliği doğrulanamadı"
+        controller.failure = "macOS identity could not be verified"
         s.beginClosure(using: controller, now: 101)
-        XCTAssertNil(s.closureSession); XCTAssertTrue(s.notice.contains("doğrulanamadı"))
+        XCTAssertNil(s.closureSession); XCTAssertTrue(s.notice.contains("could not be verified"))
     }
     func testConfirmationTargetsPreviewEvenWhenSelectionChangesAndRunsOnce() {
         var s = state(); let controller = ClosureControllerSpy()
@@ -57,10 +57,10 @@ final class TerminalClosureTests: XCTestCase {
         for (w,h) in [(80,24),(100,30),(143,68),(160,45)] {
             let frame = TerminalRenderer.render(s, width: w, height: h)
             let text = frame.lines.joined(separator: "\n")
-            XCTAssertTrue(text.contains("ETKİLENECEK UYGULAMA")); XCTAssertTrue(text.contains("Browser"))
-            XCTAssertTrue(text.contains("PID 42")); XCTAssertTrue(text.contains("Kaydedilmemiş"))
-            XCTAssertTrue(text.contains("SIGTERM")); XCTAssertTrue(text.contains("› Vazgeç"))
-            XCTAssertTrue(text.contains("Sonlandırma isteği gönder"))
+            XCTAssertTrue(text.contains("AFFECTED APPLICATION")); XCTAssertTrue(text.contains("Browser"))
+            XCTAssertTrue(text.contains("PID 42")); XCTAssertTrue(text.contains("Unsaved"))
+            XCTAssertTrue(text.contains("SIGTERM")); XCTAssertTrue(text.contains("› Cancel"))
+            XCTAssertTrue(text.contains("Send termination request"))
             XCTAssertTrue(frame.lines.allSatisfy { TerminalText.width($0) <= w })
         }
     }
@@ -83,7 +83,7 @@ final class TerminalClosureTests: XCTestCase {
         let controller = ClosureControllerSpy(); s.beginClosure(using: controller, now: 101)
         let frame = TerminalRenderer.render(s, width: 80, height: 24)
         XCTAssertGreaterThan(frame.maximumDetailScroll, 0)
-        XCTAssertTrue(frame.lines.joined().contains("sona kadar oku"))
+        XCTAssertTrue(frame.lines.joined().contains("Read all impact information"))
         s.chooseClosure(.confirm)
         s.confirmClosure(using: controller, now: 101, maximumScroll: frame.maximumDetailScroll)
         XCTAssertTrue(controller.submitted.isEmpty)
@@ -97,10 +97,10 @@ final class TerminalClosureTests: XCTestCase {
         s.confirmClosure(using: controller, now: 101)
         controller.observation = .alive; s.observeClosure(using: controller, now: 112)
         var text = TerminalRenderer.render(s, width: 80, height: 24).lines.joined()
-        XCTAssertTrue(text.contains("HÂLÂ ÇALIŞIYOR")); XCTAssertFalse(text.contains("ÇIKIŞI DOĞRULANDI"))
+        XCTAssertTrue(text.contains("STILL RUNNING")); XCTAssertFalse(text.contains("EXIT VERIFIED"))
         controller.observation = .replaced; s.observeClosure(using: controller, now: 114)
         text = TerminalRenderer.render(s, width: 80, height: 24).lines.joined()
-        XCTAssertTrue(text.contains("KİMLİĞİ DEĞİŞTİ")); XCTAssertFalse(text.contains("ÇIKIŞI DOĞRULANDI"))
+        XCTAssertTrue(text.contains("IDENTITY CHANGED")); XCTAssertFalse(text.contains("EXIT VERIFIED"))
     }
     func testCaptureClosurePreviewsWhenRequested() throws {
         guard let dir = ProcessInfo.processInfo.environment["TAWL_CLOSURE_CAPTURE"] else { return }

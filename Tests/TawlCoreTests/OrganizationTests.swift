@@ -76,7 +76,7 @@ final class OrganizationTests: XCTestCase {
         let categories = groupProcesses(snapshot, by: .category)
         XCTAssertEqual(categories.count, 2)
         let browser = categories.first { $0.id == "category:browsers" }
-        XCTAssertEqual(browser?.name, "Tarayıcılar")
+        XCTAssertEqual(browser?.name, "Browsers")
         XCTAssertEqual(browser?.memberIDs, ["c", "s"])
         XCTAssertEqual(browser?.cpuCores, 2)
         XCTAssertEqual(browser?.footprintBytes, 400)

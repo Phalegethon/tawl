@@ -4,7 +4,7 @@
 
 TAWL groups processes by application, project and usage category, shows CPU core and GPU activity, and helps investigate memory pressure. Inspect a process, review which application it affects, confirm termination, then compare system resources before and after with exportable charts.
 
-Requires **macOS 15 or later**. Apple Silicon and Intel release builds are separate. The interface currently uses Turkish labels. No Python, Node.js or Swift toolchain is required to run a release binary.
+Requires **macOS 15 or later**. Apple Silicon and Intel release builds are separate. English is the default interface language; Turkish is available with `--lang tr`. No Python, Node.js or Swift toolchain is required to run a release binary.
 
 ## Install with Homebrew
 
@@ -49,7 +49,21 @@ tawl report session.tawl --json
 
 Legacy `.nabiz` recordings remain readable. Recordings are opt-in and may contain process and project names; treat them as private data.
 
+## Language
+
+Since **0.2.0**, English is the default, regardless of your operating system locale. Use `--lang en` or `--lang tr` for a command, or set `TAWL_LANG` for your shell:
+
+```sh
+tawl --lang tr
+TAWL_LANG=tr tawl
+TAWL_LANG=tr tawl --lang en             # The command-line flag takes priority
+```
+
+Only `en` and `tr` are supported. Project documentation is maintained in English.
+
 ## Updates
+
+Upgrade an existing installation to get the latest language support:
 
 ```sh
 tawl update check                     # Check for a newer stable release
@@ -68,7 +82,7 @@ tawl --no-update-check
 export TAWL_NO_UPDATE_CHECK=1
 ```
 
-Homebrew installs delegate updates to Homebrew. Standalone installs verify the downloaded binary's SHA-256 digest, architecture and version before replacing the installed executable. Failed verification leaves the current binary intact. Source checkouts are rebuilt by the developer rather than overwritten by the updater.
+Homebrew installs delegate updates to Homebrew. You can also run `brew update` followed by `brew upgrade phalegethon/tawl/tawl` directly. Standalone installs verify the downloaded binary's SHA-256 digest, architecture and version before replacing the installed executable. Failed verification leaves the current binary intact. Source checkouts are rebuilt by the developer rather than overwritten by the updater.
 
 ## Main controls
 
@@ -97,7 +111,7 @@ Closing a process always requires a separate confirmation. TAWL shows the affect
 - Swap is system-wide. TAWL cannot identify exact per-process swap ownership or promise when swap usage will drop. It shows pressure, swap traffic and memory candidates together.
 - Missing or inaccessible data is marked explicitly. High consumption alone is not proof of a bottleneck, a leak or an unused application.
 
-[Detailed Turkish usage guide](docs/usage-tr.md) · [Product scope](PRODUCT.md) · [Measurement research](docs/research.md)
+[Detailed usage guide](docs/usage.md) · [Product scope](PRODUCT.md) · [Measurement research](docs/research.md)
 
 ## Build and test
 

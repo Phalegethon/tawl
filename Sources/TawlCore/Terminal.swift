@@ -353,7 +353,7 @@ public struct TerminalState {
         guard let current = historicalSnapshot, !snapshots.isEmpty else { return }
         let index = snapshots.lastIndex { $0.monotonicTime <= current.monotonicTime } ?? 0
         let target = min(snapshots.count-1, max(0, index + amount))
-        notice = amount < 0 && index == 0 ? "Bu zamandan öncesi için kayıt yok." : ""
+        notice = amount < 0 && index == 0 ? L10n.text("No recordings before this time.") : ""
         historicalSnapshot = snapshots[target]
         historicalHistory = pinnedWindow(endingAt: historicalSnapshot)
         if historicalSnapshot?.monotonicTime == snapshots.last?.monotonicTime {historicalEvidence=evidenceTracker}
@@ -459,9 +459,9 @@ public enum TerminalError: Error, LocalizedError {
     case requiresTTY, setupFailed, invalidInterval
     public var errorDescription: String? {
         switch self {
-        case .requiresTTY: return "Canlı ekran etkileşimli terminal gerektirir. Bunun yerine ./tawl status kullanın."
-        case .setupFailed: return "Terminal giriş ayarları okunamadı veya değiştirilemedi."
-        case .invalidInterval: return "Örnekleme aralığı pozitif ve sonlu olmalı."
+        case .requiresTTY: return L10n.text("Live view requires an interactive terminal. Use tawl status instead.")
+        case .setupFailed: return L10n.text("Could not read or change terminal input settings.")
+        case .invalidInterval: return L10n.text("Sampling interval must be positive and finite.")
         }
     }
 }
@@ -641,7 +641,7 @@ public final class TerminalUI {
                 case .text("4"): state.chooseSort(.memoryDelta)
                 case .text("5"):
                     if !state.detailVisible {state.chooseSort(.members)}
-                    else {state.notice="Üye sayısı gruplar ekranında sıralanır."}
+                    else {state.notice=L10n.text("Member count is sorted in the groups view.")}
                 case .text("s"): state.cycleSort()
                 case .text("o"):
                     if !state.detailVisible {state.openDetails()}
@@ -653,7 +653,7 @@ public final class TerminalUI {
                 case .text("?"): state.helpVisible = true
                 case .text("m"):
                     let marker = EventMarker(); state.mark(marker); try onMarker?(marker)
-                    state.notice = "Olay işaretlendi · canlı zaman · Geçmişte ←/→ ile çevresini inceleyin."
+                    state.notice = L10n.text("Event marked at live time · inspect nearby samples with ←/→ in history.")
                 case .escape:
                     state.notice = ""
                     if state.processInfoVisible {state.processInfoVisible=false}

@@ -22,7 +22,7 @@ final class ProcessAssessmentTests: XCTestCase {
     }
     func testResourceBadgesIdentifySpecificResourceAndSeverity() {
         let values = resourceSignals(cpuCores: 2, footprintBytes: 4 * 1024 * mib, memoryDeltaBytes: Int64(100 * mib))
-        XCTAssertEqual(values.map(\.label), ["CPU", "BELLEK", "ARTIŞ"])
+        XCTAssertEqual(values.map(\.label), ["CPU", "MEMORY", "GROWTH"])
         XCTAssertEqual(values.map(\.severity), [.critical, .critical, .warning])
         XCTAssertTrue(resourceSignals(cpuCores: .nan, footprintBytes: nil, memoryDeltaBytes: -1).isEmpty)
         XCTAssertTrue(resourceSignals(cpuCores: 0.9, footprintBytes: 1024 * mib, memoryDeltaBytes: 50).isEmpty)
@@ -34,6 +34,17 @@ final class ProcessAssessmentTests: XCTestCase {
         XCTAssertEqual(result.recommendations.first?.kind, .sustainedCPU)
         XCTAssertTrue(result.recommendations.first?.action.contains("Browser") == true)
         XCTAssertTrue(result.recommendations.first?.evidence.contains("30") == true)
+    }
+    func testLocalizedRecommendationPreservesApplicationNamesThatMatchTranslationKeys() {
+        var p = process(cpu: 1.2)
+        p.applicationName = "Memory pressure"
+        let english = L10n.withLanguage(.english) { assess(p, history(p, duration: 30)) }
+        let turkish = L10n.withLanguage(.turkish) { assess(p, history(p, duration: 30)) }
+        XCTAssertEqual(english.recommendations.map(\.kind), turkish.recommendations.map(\.kind))
+        XCTAssertNotEqual(english.recommendations.first?.title, turkish.recommendations.first?.title)
+        XCTAssertTrue(english.recommendations.first?.action.contains("Memory pressure") == true)
+        XCTAssertTrue(turkish.recommendations.first?.action.contains("Memory pressure") == true)
+        XCTAssertEqual(english.highCPUSeconds, turkish.highCPUSeconds)
     }
     func testMissingMetricsSamplingGapsAndPIDReuseBreakSustainedCPU() {
         let p = process(cpu: 1.2)
@@ -57,8 +68,8 @@ final class ProcessAssessmentTests: XCTestCase {
         XCTAssertFalse(assess(p, history(p, duration: 598)).recommendations.contains { $0.kind == .quietMemory })
         let result = assess(p, history(p))
         XCTAssertEqual(result.recommendations.first?.kind, .quietMemory)
-        XCTAssertTrue(result.recommendations.first?.caveat.contains("kullanılmıyor") == true)
-        XCTAssertTrue(result.recommendations.first?.caveat.contains("ağ") == true)
+        XCTAssertTrue(result.recommendations.first?.caveat.contains("unused") == true)
+        XCTAssertTrue(result.recommendations.first?.caveat.contains("network") == true)
         XCTAssertEqual(result.quietObservationState, .qualified)
         XCTAssertEqual(result.quietSeconds, 600)
     }
@@ -86,7 +97,7 @@ final class ProcessAssessmentTests: XCTestCase {
     func testUnknownAgeAndUnknownOrActiveIOCannotProduceQuietAdvice() {
         var p = process(); p.ageSeconds = nil
         XCTAssertFalse(assess(p, history(p)).recommendations.contains { $0.kind == .quietMemory })
-        XCTAssertTrue(assess(p, history(p)).idleStatus.contains("yaşı"))
+        XCTAssertTrue(assess(p, history(p)).idleStatus.contains("age"))
         p = process(); p.diskReadBytesPerSecond = nil
         XCTAssertFalse(assess(p, history(p)).recommendations.contains { $0.kind == .quietMemory })
         p.diskReadBytesPerSecond = 1024
@@ -122,7 +133,7 @@ final class ProcessAssessmentTests: XCTestCase {
             let busy = assess(p, samples)
             XCTAssertFalse(busy.signals.isEmpty, name)
             XCTAssertTrue(busy.recommendations.isEmpty, name)
-            XCTAssertTrue(busy.idleStatus.contains("servis"), name)
+            XCTAssertTrue(busy.idleStatus.contains("service"), name)
             p.cpuCores = 0.01
             XCTAssertTrue(assess(p, history(p)).recommendations.isEmpty, name)
         }
@@ -133,7 +144,7 @@ final class ProcessAssessmentTests: XCTestCase {
         p.name = "postgres"
         let result = assess(p, history(p))
         XCTAssertTrue(result.recommendations.isEmpty)
-        XCTAssertTrue(result.idleStatus.contains("Veritabanları"))
+        XCTAssertTrue(result.idleStatus.contains("Databases"))
     }
     func testFutureSnapshotsDoNotSupplyEvidenceForHistoricalView() {
         let p = process(cpu: 2)

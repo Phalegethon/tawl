@@ -5,16 +5,16 @@ final class DashboardTests: XCTestCase {
         for (w,h) in [(80,24),(100,30),(157,43)] {
             var state = populated()
             let before = TerminalRenderer.render(state,width:w,height:h)
-            state.updateNotice = "TAWL 0.2.0 hazır · tawl update"
+            state.updateNotice = "TAWL 0.2.0 available · tawl update"
             let after = TerminalRenderer.render(state,width:w,height:h)
             XCTAssertTrue(after.lines[h-2].contains("tawl update"))
             XCTAssertEqual(after.visibleRowIDs,before.visibleRowIDs)
             XCTAssertEqual(Array(after.lines.prefix(h-2)),Array(before.lines.prefix(h-2)))
             XCTAssertTrue(after.lines.allSatisfy { TerminalText.width($0) <= w })
-            state.notice = "Rapor kaydedildi"
-            XCTAssertTrue(TerminalRenderer.render(state,width:w,height:h).lines[h-2].contains("Rapor kaydedildi"))
+            state.notice = "Report saved"
+            XCTAssertTrue(TerminalRenderer.render(state,width:w,height:h).lines[h-2].contains("Report saved"))
             state.searchEditing = true
-            XCTAssertTrue(TerminalRenderer.render(state,width:w,height:h).lines[h-2].contains("ARA"))
+            XCTAssertTrue(TerminalRenderer.render(state,width:w,height:h).lines[h-2].contains("SEARCH"))
         }
     }
     // Optional review artifacts from the exact renderer; never alters normal test runs.
@@ -56,20 +56,20 @@ final class DashboardTests: XCTestCase {
     }
     func testWideScreenUsesContextInsteadOfAnEmptyNameColumn() {
         let f = TerminalRenderer.render(populated(),width:140,height:72)
-        XCTAssertTrue(f.lines.joined().contains("SEÇİLİ İŞ"))
-        let header = f.lines.first { $0.contains("2 CPU") && $0.contains("AYAK İZİ") }
+        XCTAssertTrue(f.lines.joined().contains("SELECTED WORKLOAD"))
+        let header = f.lines.first { $0.contains("2 CPU") && $0.contains("FOOTPRINT") }
         XCTAssertNotNil(header)
         XCTAssertLessThan(header?.distance(from:header!.startIndex,to:header!.range(of:"2 CPU")!.lowerBound) ?? 999,50)
         XCTAssertTrue(f.coloredLines.contains { $0.contains("48;5;") })
-        XCTAssertTrue(f.lines.joined().contains("Ölçek"))
-        XCTAssertTrue(f.lines.joined().contains("0–60.0 MiB · otomatik"),"Integer bytes must be converted numerically, not reinterpreted as floating-point bits")
+        XCTAssertTrue(f.lines.joined().contains("Scale"))
+        XCTAssertTrue(f.lines.joined().contains("0–60.0 MiB · auto"),"Integer bytes must be converted numerically, not reinterpreted as floating-point bits")
     }
     func testGraphicsDoNotDisplaceComparisonRowsOrEscapeCellBounds() throws {
         for (w,h,count) in [(80,24,6),(100,30,10),(160,45,18)] {
             let f = TerminalRenderer.render(populated(),width:w,height:h)
             XCTAssertGreaterThanOrEqual(f.visibleRowIDs.count,count)
             XCTAssertTrue(f.lines.allSatisfy { TerminalText.width($0) <= w })
-            XCTAssertTrue(f.lines.joined().contains("BELLEK"))
+            XCTAssertTrue(f.lines.joined().contains("MEMORY"))
             XCTAssertTrue(f.lines.joined().contains("DISK") || f.lines.joined().contains("Disk"))
             XCTAssertEqual(f.coloredLines.count,h)
         }
@@ -86,19 +86,19 @@ final class DashboardTests: XCTestCase {
     func testMissingScaleAndCapacityAreNotPresentedAsMeasurements() {
         var state=TerminalState();state.accept(Snapshot(timestamp:Date(),monotonicTime:0))
         let text=TerminalRenderer.render(state,width:100,height:30).lines.joined(separator:"\n")
-        XCTAssertTrue(text.contains("Ölçek bekleniyor"))
+        XCTAssertTrue(text.contains("Waiting for scale"))
         XCTAssertFalse(text.contains("0–1 B/s"))
-        XCTAssertFalse(text.contains("0 çek."))
+        XCTAssertFalse(text.contains("0 cores"))
     }
     func testAppliedFilterAndDetailNavigationStayVisible() {
         var state=populated();state.setSearch("no_match_123")
         let filtered=TerminalRenderer.render(state,width:80,height:24)
-        XCTAssertTrue(filtered.lines.joined().contains("Filtre /no_match_123"))
-        XCTAssertTrue(filtered.lines.last!.contains("q çıkış"))
+        XCTAssertTrue(filtered.lines.joined().contains("Filter /no_match_123"))
+        XCTAssertTrue(filtered.lines.last!.contains("q quit"))
         state.setSearch("");state.detailVisible=true
         let detail=TerminalRenderer.render(state,width:100,height:30).lines.joined()
-        XCTAssertTrue(detail.contains("1–1/1 süreç"))
-        XCTAssertTrue(detail.contains("↑↓ süreç"))
+        XCTAssertTrue(detail.contains("1–1/1 processes"))
+        XCTAssertTrue(detail.contains("↑↓ process"))
     }
     func testPartialTotalsRemainMarkedInInspectorAndDetails() {
         var s=populated().snapshots.last!
@@ -107,7 +107,7 @@ final class DashboardTests: XCTestCase {
         s.processes[1].cpuCores=nil;s.processes[1].footprintBytes=nil
         var state=TerminalState();state.accept(s)
         let wide=TerminalRenderer.render(state,width:160,height:45).lines.joined()
-        XCTAssertTrue(wide.contains("1.50* çek."))
+        XCTAssertTrue(wide.contains("1.50* cores"))
         XCTAssertTrue(wide.contains("60.0 MiB*"))
         state.detailVisible=true
         let detail=TerminalRenderer.render(state,width:80,height:24).lines.joined()

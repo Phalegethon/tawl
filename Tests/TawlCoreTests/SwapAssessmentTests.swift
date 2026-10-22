@@ -16,7 +16,7 @@ final class SwapAssessmentTests: XCTestCase {
         let result = assessSwap(snapshot: snapshot())
         XCTAssertEqual(result.activity, .idle)
         XCTAssertFalse(result.shouldReviewMemory)
-        XCTAssertTrue(result.action.contains("işlem gerekmez"))
+        XCTAssertTrue(result.action.contains("requires no action"))
         XCTAssertNil(result.stockDeltaBytes)
     }
 
@@ -30,7 +30,7 @@ final class SwapAssessmentTests: XCTestCase {
         let idlePressure = assessSwap(snapshot: snapshot(pressure: .critical))
         XCTAssertEqual(idlePressure.activity, .idle)
         XCTAssertTrue(idlePressure.shouldReviewMemory)
-        XCTAssertTrue(idlePressure.summary.contains("yine de"))
+        XCTAssertTrue(idlePressure.summary.contains("still reports memory pressure"))
     }
 
     func testMissingInvalidAndPartialRatesNeverMeanIdle() {
@@ -40,8 +40,8 @@ final class SwapAssessmentTests: XCTestCase {
         }
         XCTAssertEqual(assessSwap(snapshot: snapshot(incoming: nil, outgoing: 100)).activity, .writing)
         XCTAssertEqual(assessSwap(snapshot: snapshot(incoming: 100, outgoing: nil)).activity, .reading)
-        XCTAssertFalse(assessSwap(snapshot: snapshot(incoming: 100, outgoing: nil)).action.contains("yazma yoksa"))
-        XCTAssertFalse(assessSwap(snapshot: snapshot(pressure: .unknown)).action.contains("işlem gerekmez"))
+        XCTAssertFalse(assessSwap(snapshot: snapshot(incoming: 100, outgoing: nil)).action.contains("no swap writes"))
+        XCTAssertFalse(assessSwap(snapshot: snapshot(pressure: .unknown)).action.contains("requires no action"))
     }
 
     func testObservedStockChangeIsSignedAndUsesOnlyHistoryAtThisFrame() {
@@ -70,10 +70,10 @@ final class SwapAssessmentTests: XCTestCase {
 
     func testAdviceDoesNotAttributeSwapOrPromiseReclaimedMemory() {
         let result = assessSwap(snapshot: snapshot(outgoing: 100, pressure: .warning))
-        XCTAssertTrue(result.limitation.contains("Süreç başına swap ölçülmüyor"))
-        XCTAssertTrue(result.limitation.contains("kesin hesaplanamaz"))
-        XCTAssertTrue(result.action.contains("normal kapat"))
-        XCTAssertTrue(result.action.contains("karşılaştır"))
+        XCTAssertTrue(result.limitation.contains("Per-process swap is not measured"))
+        XCTAssertTrue(result.limitation.contains("cannot be calculated precisely"))
+        XCTAssertTrue(result.action.contains("normally close"))
+        XCTAssertTrue(result.action.contains("compare"))
         XCTAssertFalse(result.action.lowercased().contains("sudo"))
     }
 }

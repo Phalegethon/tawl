@@ -98,15 +98,15 @@ public enum RecordingError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidFormat: return "Geçerli bir TAWL kayıt başlığı bulunamadı."
-        case .unsupportedVersion(let version): return "Kayıt sürümü desteklenmiyor: \(version). Desteklenen sürüm: 1."
-        case .invalidRow(let line, let reason): return "Kayıt satırı \(line) geçersiz: \(reason)"
-        case .invalidSample(let reason): return "Geçersiz ölçüm: \(reason)"
-        case .sizeLimit(let limit): return "Kayıt boyut sınırına ulaşıldı (\(limit) bayt); kayıt durdu."
-        case .lineTooLong(let line): return "Kayıt satırı \(line) izin verilen 8 MiB sınırını aşıyor."
-        case .closed: return "Kayıt dosyası kapalı veya yazım durduruldu."
-        case .notRegularFile: return "Kayıt için normal bir dosya gerekli."
-        case .io(let operation, let code): return "Kayıt \(operation) hatası: \(String(cString: strerror(code)))."
+        case .invalidFormat: return L10n.text("No valid TAWL recording header found.")
+        case .unsupportedVersion(let version): return L10n.text("Unsupported recording version: \(version). Supported version: 1.")
+        case .invalidRow(let line, let reason): return L10n.text("Invalid recording row \(line): \(reason)")
+        case .invalidSample(let reason): return L10n.text("Invalid sample: \(reason)")
+        case .sizeLimit(let limit): return L10n.text("Recording size limit reached (\(limit) bytes); recording stopped.")
+        case .lineTooLong(let line): return L10n.text("Recording row \(line) exceeds the 8 MiB limit.")
+        case .closed: return L10n.text("The recording file is closed or writing has stopped.")
+        case .notRegularFile: return L10n.text("Recording requires a regular file.")
+        case .io(let operation, let code): return L10n.text("Recording \(operation) error: \(String(cString: strerror(code))).")
         }
     }
 }
@@ -139,9 +139,9 @@ public final class RecordingWriter {
         guard header.count <= self.maxBytes else { throw RecordingError.sizeLimit(self.maxBytes) }
         guard url.isFileURL else { throw RecordingError.notRegularFile }
         descriptor = Darwin.open(url.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
-        guard descriptor >= 0 else { throw RecordingError.io("oluşturma", errno) }
+        guard descriptor >= 0 else { throw RecordingError.io(L10n.text("creation"), errno) }
         do {
-            guard fchmod(descriptor, 0o600) == 0 else { throw RecordingError.io("izin", errno) }
+            guard fchmod(descriptor, 0o600) == 0 else { throw RecordingError.io(L10n.text("permissions"), errno) }
             try write(header)
         } catch {
             _ = Darwin.close(descriptor)
@@ -153,7 +153,7 @@ public final class RecordingWriter {
     public func append(_ snapshot: Snapshot) throws {
         try validate(snapshot)
         if let previous = lastMonotonicTime, snapshot.monotonicTime <= previous {
-            throw RecordingError.invalidSample("örneklerin monotonik zamanı artmalı")
+            throw RecordingError.invalidSample(L10n.text("sample monotonic times must increase"))
         }
         try appendRow(RecordRow(type: "snapshot", snapshot: snapshot))
         lastMonotonicTime = snapshot.monotonicTime
@@ -161,7 +161,7 @@ public final class RecordingWriter {
 
     public func appendMarker(_ marker: EventMarker) throws {
         guard marker.timestamp.timeIntervalSinceReferenceDate.isFinite else {
-            throw RecordingError.invalidSample("olay zamanı sonlu olmalı")
+            throw RecordingError.invalidSample(L10n.text("event time must be finite"))
         }
         try appendRow(RecordRow(type: "marker", marker: marker))
     }
@@ -172,7 +172,7 @@ public final class RecordingWriter {
         descriptor = -1
         let syncError = fsync(fd) == 0 ? nil : errno
         let closeError = Darwin.close(fd) == 0 ? nil : errno
-        if let code = syncError ?? closeError { throw RecordingError.io("kapatma", code) }
+        if let code = syncError ?? closeError { throw RecordingError.io(L10n.text("close"), code) }
     }
 
     deinit { if descriptor >= 0 { _ = Darwin.close(descriptor) } }
@@ -199,7 +199,7 @@ public final class RecordingWriter {
                 while offset < data.count {
                     let count = Darwin.write(descriptor, bytes.baseAddress!.advanced(by: offset), data.count - offset)
                     if count < 0 && errno == EINTR { continue }
-                    guard count > 0 else { throw RecordingError.io("yazma", count == 0 ? EIO : errno) }
+                    guard count > 0 else { throw RecordingError.io(L10n.text("write"), count == 0 ? EIO : errno) }
                     offset += count
                 }
             }
@@ -218,11 +218,11 @@ public enum RecordingReader {
     public static func read(url: URL) throws -> Recording {
         guard url.isFileURL else { throw RecordingError.notRegularFile }
         let descriptor = Darwin.open(url.path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
-        guard descriptor >= 0 else { throw RecordingError.io("okuma", errno) }
+        guard descriptor >= 0 else { throw RecordingError.io(L10n.text("read"), errno) }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
         defer { try? handle.close() }
         var metadata = stat()
-        guard fstat(descriptor, &metadata) == 0 else { throw RecordingError.io("dosya bilgisi", errno) }
+        guard fstat(descriptor, &metadata) == 0 else { throw RecordingError.io(L10n.text("file metadata"), errno) }
         guard (metadata.st_mode & S_IFMT) == S_IFREG else { throw RecordingError.notRegularFile }
         guard metadata.st_size <= RecordingLimits.fileBytes else { throw RecordingError.sizeLimit(RecordingLimits.fileBytes) }
 
@@ -239,10 +239,10 @@ public enum RecordingReader {
             do { row = try decoder.decode(RecordRow.self, from: data) }
             catch {
                 if hasHeader && finalUnterminated && isIncompleteJSON(data) {
-                    recording.warnings.append("Son kayıt satırı eksik; önceki tamamlanmış kayıtlar okundu.")
+                    recording.warnings.append(L10n.text("The final recording row is incomplete; previous complete rows were loaded."))
                     return
                 }
-                throw RecordingError.invalidRow(line, "JSON veya satır şeması bozuk")
+                throw RecordingError.invalidRow(line, L10n.text("invalid JSON or row schema"))
             }
             if !hasHeader {
                 // The v1 payload is unchanged; recordings made before the rename remain readable.
@@ -253,26 +253,26 @@ public enum RecordingReader {
                 return
             }
             guard row.format == nil, row.version == nil else {
-                throw RecordingError.invalidRow(line, "beklenmeyen başlık alanı")
+                throw RecordingError.invalidRow(line, L10n.text("unexpected header field"))
             }
             switch row.type {
             case "snapshot":
                 guard let snapshot = row.snapshot, row.marker == nil else {
-                    throw RecordingError.invalidRow(line, "ölçüm eksik veya çelişkili")
+                    throw RecordingError.invalidRow(line, L10n.text("missing or contradictory sample"))
                 }
                 do { try validate(snapshot) }
                 catch { throw RecordingError.invalidRow(line, error.localizedDescription) }
                 if let previous = recording.snapshots.last, snapshot.monotonicTime <= previous.monotonicTime {
-                    throw RecordingError.invalidRow(line, "örneklerin monotonik zamanı artmalı")
+                    throw RecordingError.invalidRow(line, L10n.text("sample monotonic times must increase"))
                 }
                 recording.snapshots.append(snapshot)
             case "marker":
                 guard let marker = row.marker, row.snapshot == nil,
                       marker.timestamp.timeIntervalSinceReferenceDate.isFinite else {
-                    throw RecordingError.invalidRow(line, "olay veya zamanı geçersiz")
+                    throw RecordingError.invalidRow(line, L10n.text("invalid event or event time"))
                 }
                 recording.markers.append(marker)
-            default: throw RecordingError.invalidRow(line, "bilinmeyen satır türü")
+            default: throw RecordingError.invalidRow(line, L10n.text("unknown row type"))
             }
         }
 
@@ -316,17 +316,17 @@ private func validate(_ snapshot: Snapshot) throws {
     guard snapshot.timestamp.timeIntervalSinceReferenceDate.isFinite,
           nonnegative(snapshot.monotonicTime),
           snapshot.intervalSeconds.map({ $0.isFinite && $0 > 0 }) ?? true else {
-        throw RecordingError.invalidSample("zaman veya örnekleme aralığı geçersiz")
+        throw RecordingError.invalidSample(L10n.text("invalid time or sampling interval"))
     }
     guard nonnegative(snapshot.cpuPercent), snapshot.cpuPercent.map({ $0 <= 100 }) ?? true,
           snapshot.logicalCPUCount >= 0, snapshot.totalProcessCount >= 0, snapshot.unreadableProcessCount >= 0 else {
-        throw RecordingError.invalidSample("CPU değeri veya süreç sayısı geçersiz")
+        throw RecordingError.invalidSample(L10n.text("invalid CPU value or process count"))
     }
     if let cores = snapshot.cpuCores {
         guard cores.count <= HardwareLimits.cpuCount,
               Set(cores.map(\.id)).count == cores.count,
               cores.allSatisfy({ (0...HardwareLimits.cpuID).contains($0.id) && HardwareLimits.percentage($0.utilizationPercent) }) else {
-            throw RecordingError.invalidSample("CPU çekirdek kimliği, sayısı veya kullanım değeri geçersiz")
+            throw RecordingError.invalidSample(L10n.text("invalid CPU-core identity, count, or usage"))
         }
     }
     if let gpus = snapshot.gpus {
@@ -337,7 +337,7 @@ private func validate(_ snapshot: Snapshot) throws {
                   HardwareLimits.percentage(gpu.utilizationPercent) &&
                   HardwareLimits.percentage(gpu.rendererUtilizationPercent) && HardwareLimits.percentage(gpu.tilerUtilizationPercent)
               }) else {
-            throw RecordingError.invalidSample("GPU kimliği, sayısı veya kullanım değeri geçersiz")
+            throw RecordingError.invalidSample(L10n.text("invalid GPU identity, count, or usage"))
         }
     }
     let rates = [snapshot.swapInBytesPerSecond, snapshot.swapOutBytesPerSecond,
@@ -345,5 +345,5 @@ private func validate(_ snapshot: Snapshot) throws {
                  snapshot.diskReadBytesPerSecond, snapshot.diskWriteBytesPerSecond]
     guard rates.allSatisfy(nonnegative), snapshot.processes.allSatisfy({
         nonnegative($0.cpuCores) && nonnegative($0.diskReadBytesPerSecond) && nonnegative($0.diskWriteBytesPerSecond)
-    }) else { throw RecordingError.invalidSample("hız ölçümleri sonlu ve negatif olmayan değerler olmalı") }
+    }) else { throw RecordingError.invalidSample(L10n.text("rates must be finite and nonnegative")) }
 }

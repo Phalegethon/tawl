@@ -19,16 +19,16 @@ final class AssessmentVisualTests:XCTestCase {
         for (w,h) in [(80,24),(100,30),(143,68),(160,45)] {
             let frame=TerminalRenderer.render(state,width:w,height:h)
             let text=frame.lines.joined(separator:"\n")
-            XCTAssertTrue(text.contains("CPU"));XCTAssertTrue(text.contains("AYAK İZİ"))
-            XCTAssertTrue(text.contains("GÖZLEM SÜRESİ"));XCTAssertTrue(text.contains("600 / 600 sn"))
-            XCTAssertTrue(text.contains("x: etkilenen uygulama"),"A brief next step must be visible without scrolling")
+            XCTAssertTrue(text.contains("CPU"));XCTAssertTrue(text.contains("FOOTPRINT"))
+            XCTAssertTrue(text.contains("OBSERVATION TIME"));XCTAssertTrue(text.contains("600 / 600 s"))
+            XCTAssertTrue(text.contains("x: affected application"),"A brief next step must be visible without scrolling")
             XCTAssertTrue(text.contains("512.0 MiB"),"UInt64 measurements must be converted numerically")
             XCTAssertFalse(text.contains("0–1 B"))
             XCTAssertTrue(text.contains("█"),"Actual history and duration must render graph cells")
             XCTAssertEqual(frame.lines.count,h)
             XCTAssertTrue(frame.lines.allSatisfy{TerminalText.width($0)<=w})
             XCTAssertTrue(frame.coloredLines.joined().contains("38;5;"))
-            if w>=120 {XCTAssertTrue(text.contains("RAM → disk"));XCTAssertTrue(text.contains("NE YAPILABİLİR?"))}
+            if w>=120 {XCTAssertTrue(text.contains("RAM → disk"));XCTAssertTrue(text.contains("WHAT CAN I DO?"))}
             if w==80 {XCTAssertGreaterThan(frame.maximumDetailScroll,0)}
         }
     }
@@ -38,7 +38,7 @@ final class AssessmentVisualTests:XCTestCase {
         XCTAssertEqual(state.grouping,.application);XCTAssertEqual(state.sort,.footprint)
         for (w,h) in [(80,24),(160,45)] {
             let text=TerminalRenderer.render(state,width:w,height:h).lines.joined()
-            XCTAssertTrue(text.contains("SWAP / BELLEK"));XCTAssertTrue(text.contains("BELLEK ADAYLARI"))
+            XCTAssertTrue(text.contains("SWAP / MEMORY"));XCTAssertTrue(text.contains("MEMORY CANDIDATES"))
             XCTAssertTrue(text.contains("RAM→disk") || text.contains("RAM → disk"))
             XCTAssertTrue(text.contains("Disk→RAM") || text.contains("Disk → RAM"))
             XCTAssertTrue(text.contains("0–10.0 GiB"))
@@ -51,10 +51,10 @@ final class AssessmentVisualTests:XCTestCase {
         s.processes[0].canReviewClosure=nil;s.processes[0].cpuCores=nil;s.processes[0].footprintBytes=nil
         state.accept(s);state.openDetails();state.processInfoVisible=true
         let frame=TerminalRenderer.render(state,width:100,height:45)
-        XCTAssertTrue(frame.lines.joined().contains("kanıt yok"))
-        XCTAssertFalse(frame.lines.joined().contains("0 / 600 sn"))
-        XCTAssertTrue(frame.lines.joined().contains("Eksik ölçüm"))
-        XCTAssertFalse(frame.lines.joined().contains("Yüksek tüketim eşiği aşılmadı"))
+        XCTAssertTrue(frame.lines.joined().contains("no evidence"))
+        XCTAssertFalse(frame.lines.joined().contains("0 / 600 s"))
+        XCTAssertTrue(frame.lines.joined().contains("Missing measurements"))
+        XCTAssertFalse(frame.lines.joined().contains("High usage threshold not exceeded"))
         var source=TerminalCanvas(width:8,height:4)
         source.write("漢A",x:1,y:2,ink:.warning,fill:.panel)
         var target=TerminalCanvas(width:6,height:2)
@@ -79,11 +79,11 @@ final class AssessmentVisualTests:XCTestCase {
         for (w,h) in [(80,24),(100,30),(143,68),(160,45)] {try save(actual,w,h,"actual-assessment-\(w)x\(h)")}
         actual.toggleMemoryFocus()
         for (w,h) in [(80,24),(100,30),(143,68)] {try save(actual,w,h,"actual-swap-\(w)x\(h)")}
-        var quiet=state(quiet:true);quiet.processInfoVisible=true;quiet.notice="SENTETİK SENARYO · düşük etkinlik ve swap yazımı"
+        var quiet=state(quiet:true);quiet.processInfoVisible=true;quiet.notice="SYNTHETIC SCENARIO · low activity and swap writes"
         try save(quiet,143,45,"synthetic-quiet-143x45")
         var missing=TerminalState();var s=InvestigationTests().snapshot(0,count:1)
         s.processes[0].canReviewClosure=nil;s.processes[0].cpuCores=nil;s.processes[0].footprintBytes=nil;s.processes[0].ageSeconds=nil
-        missing.accept(s);missing.openDetails();missing.processInfoVisible=true;missing.notice="SENTETİK SENARYO · eksik ölçüm"
+        missing.accept(s);missing.openDetails();missing.processInfoVisible=true;missing.notice="SYNTHETIC SCENARIO · missing measurements"
         try save(missing,100,30,"synthetic-missing-100x30")
     }
 }

@@ -15,7 +15,16 @@ final class AnalysisTests: XCTestCase {
     func testCurrentPressureIsObservationNotLeakDiagnosis() {
         let findings = analyze([frame(0, pressure: .warning)])
         XCTAssertTrue(findings.contains { $0.code == "memory-pressure" && $0.severity == "warning" })
-        XCTAssertFalse(findings.contains { $0.detail.lowercased().contains("sızıntı var") })
+        XCTAssertFalse(findings.contains { $0.detail.lowercased().contains("there is a leak") })
+    }
+    func testLanguageChangesPresentationWithoutChangingFindingIdentityOrSeverity() throws {
+        let sample = frame(0, pressure: .warning)
+        let english = L10n.withLanguage(.english) { analyze([sample]) }
+        let turkish = L10n.withLanguage(.turkish) { analyze([sample]) }
+        XCTAssertEqual(english.map(\.code), turkish.map(\.code))
+        XCTAssertEqual(english.map(\.severity), turkish.map(\.severity))
+        XCTAssertEqual(english.first?.title, "Memory pressure observed")
+        XCTAssertEqual(turkish.first?.title, try XCTUnwrap(TurkishCore.strings["Memory pressure observed"]))
     }
     func testShortOrGappedCPUHistoryCannotProveSustainedLoad() {
         XCTAssertFalse(analyze([frame(0, cpu: 99), frame(2, cpu: 99)]).contains { $0.code == "sustained-cpu" })

@@ -15,14 +15,14 @@ final class FixtureOnlyController: ProcessClosureControlling {
         log.write(data);log.write(Data([10]))
     }
     func prepare(_ intent:ProcessClosureIntent)->String? {
-        guard intent.pid==pid else{return "Test yalnız kendi geçici sürecini seçebilir."}
+        guard intent.pid==pid else{return "The test can select only its own disposable process."}
         let error=native.prepare(intent)
         record("prepare",["pid":Int(intent.pid),"processID":intent.processID,
                           "app":intent.applicationName,"reasons":intent.reasons,"error":error ?? ""])
         return error
     }
     func submit(_ intent:ProcessClosureIntent)->ProcessClosureSubmission {
-        guard intent.pid==pid else{return .rejected("Test kapsamı dışında; istek gönderilmedi.")}
+        guard intent.pid==pid else{return .rejected("Outside the test scope; no request was sent.")}
         let result=native.submit(intent)
         switch result {
         case .sent:record("sent",["pid":Int(intent.pid)])
@@ -38,6 +38,8 @@ final class FixtureOnlyController: ProcessClosureControlling {
     }
     func clear(){native.clear()}
 }
+
+L10n.configure(AppLanguage(rawValue: ProcessInfo.processInfo.environment["TAWL_LANG"] ?? "en") ?? .english)
 
 let args=CommandLine.arguments
 guard args.count==3 else {fatalError("output directory and repository root required")}

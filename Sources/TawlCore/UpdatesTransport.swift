@@ -30,7 +30,7 @@ final class UpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable {
         task.resume()
         guard delegate.completed.wait(timeout: .now() + 32) == .success else {
             task.cancel()
-            throw UpdateError("GitHub request timed out. Try again when online.")
+            throw UpdateError(L10n.text("GitHub request timed out. Try again when online."))
         }
         delegate.lock.lock(); defer { delegate.lock.unlock() }
         if let failure = delegate.failure { throw failure }
@@ -41,7 +41,7 @@ final class UpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable {
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
               response.expectedContentLength <= Int64(limit) else {
             lock.lock()
-            failure = UpdateError("GitHub returned an unavailable or oversized response (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)).")
+            failure = UpdateError(L10n.text("GitHub returned an unavailable or oversized response (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))."))
             lock.unlock()
             completionHandler(.cancel)
             return
@@ -52,7 +52,7 @@ final class UpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive bytes: Data) {
         lock.lock()
         let oversized = bytes.count > limit - data.count
-        if oversized { failure = UpdateError("GitHub response exceeded the download size limit.") }
+        if oversized { failure = UpdateError(L10n.text("GitHub response exceeded the download size limit.")) }
         else { data.append(bytes) }
         lock.unlock()
         if oversized { dataTask.cancel() }
@@ -65,7 +65,7 @@ final class UpdateHTTP: NSObject, URLSessionDataDelegate, @unchecked Sendable {
         let allowed = initialURL.host == "github.com" && redirects <= 4 && url?.scheme == "https" &&
             url?.host == "release-assets.githubusercontent.com" && url?.user == nil && url?.password == nil
         if !allowed {
-            lock.lock(); failure = UpdateError("GitHub redirected outside the trusted release asset host."); lock.unlock()
+            lock.lock(); failure = UpdateError(L10n.text("GitHub redirected outside the trusted release asset host.")); lock.unlock()
         }
         completionHandler(allowed ? request : nil)
     }
@@ -87,7 +87,7 @@ enum UpdateProcess {
     static func run(_ executable: URL, arguments: [String], timeout: TimeInterval) throws -> UpdateProcessResult {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("tawl-command-\(UUID().uuidString)")
         let fd = open(temporary.path, O_CREAT | O_EXCL | O_RDWR | O_NOFOLLOW, 0o600)
-        guard fd >= 0 else { throw UpdateError("Cannot create command output file.") }
+        guard fd >= 0 else { throw UpdateError(L10n.text("Cannot create command output file.")) }
         let output = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
         defer { close(fd); try? FileManager.default.removeItem(at: temporary) }
         let process = Process()
@@ -109,7 +109,7 @@ enum UpdateProcess {
             let grace = Date().addingTimeInterval(0.5)
             while process.isRunning, Date() < grace { Thread.sleep(forTimeInterval: 0.02) }
             if process.isRunning { kill(process.processIdentifier, SIGKILL) }
-            throw UpdateError(exceededOutput ? "Update command exceeded the output limit." : "Update command timed out; installation may need a manual retry.")
+            throw UpdateError(exceededOutput ? L10n.text("Update command exceeded the output limit.") : L10n.text("Update command timed out; installation may need a manual retry."))
         }
         try output.seek(toOffset: 0)
         let bytes = try output.read(upToCount: 1_048_576) ?? Data()

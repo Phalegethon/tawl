@@ -23,12 +23,12 @@ final class HardwareViewTests:XCTestCase {
             let text=frame.lines.joined(separator:"\n")
             for id in 1...12 { XCTAssertTrue(text.contains(String(format:"%02d",id)+(id<=4 ? "E":"P")),"Core \(id) missing in \(w)x\(h)") }
             XCTAssertTrue(text.contains("GPU"));XCTAssertTrue(text.contains("38"))
-            XCTAssertTrue(text.lowercased(with:Locale(identifier:"tr_TR")).contains("aygıt toplamı"))
-            XCTAssertTrue(text.contains("0–100%"));XCTAssertTrue(text.contains("BELLEK"))
+            XCTAssertTrue(text.lowercased(with:Locale(identifier:"en_US_POSIX")).contains("device total"))
+            XCTAssertTrue(text.contains("0–100%"));XCTAssertTrue(text.contains("MEMORY"))
             XCTAssertGreaterThanOrEqual(frame.visibleRowIDs.count,minRows)
             XCTAssertTrue(frame.lines.allSatisfy{TerminalText.width($0)<=w})
             XCTAssertEqual(frame.lines.count,h)
-            XCTAssertTrue(frame.lines.last!.contains("g CPU/GPU"));XCTAssertTrue(frame.lines.last!.contains("q çıkış"))
+            XCTAssertTrue(frame.lines.last!.contains("g CPU/GPU"));XCTAssertTrue(frame.lines.last!.contains("q quit"))
             XCTAssertTrue(frame.coloredLines.joined().contains("38;5;203"),"Hot core must be visible without changing scale")
         }
     }
@@ -42,7 +42,7 @@ final class HardwareViewTests:XCTestCase {
         let after=TerminalRenderer.render(state,width:157,height:43)
         XCTAssertEqual(Array(before.lines[3..<18]),Array(after.lines[3..<18]))
         state.toggleHardware();XCTAssertFalse(state.hardwareVisible)
-        XCTAssertTrue(TerminalRenderer.render(state,width:157,height:43).lines.joined().contains("Sistem toplamı"))
+        XCTAssertTrue(TerminalRenderer.render(state,width:157,height:43).lines.joined().contains("System total"))
         state.toggleHardware();XCTAssertTrue(state.hardwareVisible)
         XCTAssertEqual(state.selectedID,selected);XCTAssertTrue(state.frozen)
         state.toggleFrozen();state.toggleHistory();state.moveHistory(by:-1)
@@ -75,10 +75,10 @@ final class HardwareViewTests:XCTestCase {
         var state=populated();var s=state.visibleSnapshot!;s.monotonicTime+=2
         s.cpuCores=nil;s.gpus=nil;state.accept(s)
         let missing=TerminalRenderer.render(state,width:80,height:24).lines.joined()
-        XCTAssertTrue(missing.contains("Çekirdek ölçümü yok"));XCTAssertTrue(missing.contains("GPU · ölçüm yok"))
+        XCTAssertTrue(missing.contains("No core measurements"));XCTAssertTrue(missing.contains("GPU · no measurements"))
         s.monotonicTime+=2
         s.cpuCores=[CPUCoreSample(id:0,kind:.unknown,utilizationPercent:nil)]
-        s.gpus=[GPUSample(id:"long",name:String(repeating:"Uzun GPU 名 ",count:20),utilizationPercent:nil)]
+        s.gpus=[GPUSample(id:"long",name:String(repeating:"Long GPU 名 ",count:20),utilizationPercent:nil)]
         state.accept(s)
         let f=TerminalRenderer.render(state,width:80,height:24)
         XCTAssertTrue(f.lines.joined().contains("01?"));XCTAssertTrue(f.lines.joined().contains("—"))

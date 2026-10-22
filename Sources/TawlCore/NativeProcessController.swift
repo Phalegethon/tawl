@@ -23,14 +23,14 @@ public final class NativeProcessController: ProcessClosureControlling {
         let result = nb_process_control_prepare(intent.pid, intent.startedAt, &candidate)
         guard result == NB_CONTROL_OK else { return Self.message(for: result) }
         let path = Self.string(from: candidate.executable_path)
-        guard !path.isEmpty else { return "Uygulamanın çalıştırılabilir dosyası doğrulanamadı." }
+        guard !path.isEmpty else { return L10n.text("The application executable could not be verified.") }
         let raw = RawProcess(pid: candidate.pid, parentPID: candidate.parent_pid,
                              startedAt: candidate.start_microseconds,
                              name: Self.string(from: candidate.name), executablePath: path)
         let identity = Attributor().identify(raw, among: [])
         guard identity.applicationID == intent.applicationID,
               cleanText(identity.applicationName) == intent.applicationName else {
-            return "Canlı süreç farklı bir uygulamaya ait; kapatma hazırlığı iptal edildi."
+            return L10n.text("The live process belongs to a different application; termination preparation cancelled.")
         }
         ticket = candidate
         boundIntent = intent
@@ -39,7 +39,7 @@ public final class NativeProcessController: ProcessClosureControlling {
 
     public func submit(_ intent: ProcessClosureIntent) -> ProcessClosureSubmission {
         guard matches(intent), var candidate = ticket else {
-            return .rejected("Bu süreç için doğrulanmış bir kapatma hazırlığı yok.")
+            return .rejected(L10n.text("No verified termination preparation exists for this process."))
         }
         let result = nb_process_control_terminate(&candidate)
         ticket = candidate
@@ -74,23 +74,23 @@ public final class NativeProcessController: ProcessClosureControlling {
     private static func message(for code: Int32) -> String {
         switch Int(code) {
         case NB_CONTROL_ANCESTRY_UNAVAILABLE:
-            return "Terminalin üst süreç zinciri doğrulanamadı; kapatma hazırlığı durduruldu. Hedefin korunan bir süreç olduğu belirlenmedi."
+            return L10n.text("The terminal ancestor chain could not be verified; termination preparation stopped. The target was not identified as protected.")
         case NB_CONTROL_PROTECTED:
-            return "Bu süreç korunuyor: sistem, altyapı, başka kullanıcı veya terminalin kendi süreci."
+            return L10n.text("This process is protected: system, infrastructure, another user, or an ancestor of this terminal session.")
         case NB_CONTROL_CHANGED:
-            return "Süreç kapanmış veya kimliği değişmiş; kapatma isteği gönderilmedi."
+            return L10n.text("The process exited or its identity changed; no termination request was sent.")
         case NB_CONTROL_EXPIRED:
-            return "Onayın 30 saniyelik süresi doldu; süreci yeniden seç."
+            return L10n.text("The 30-second confirmation expired; select the process again.")
         case NB_CONTROL_ALREADY_USED:
-            return "Bu onay daha önce işlendi; yeniden istek gönderilmedi."
+            return L10n.text("This confirmation was already processed; no duplicate request was sent.")
         case NB_CONTROL_DENIED:
-            return "macOS kapatma isteğine izin vermedi."
+            return L10n.text("macOS denied the termination request.")
         case NB_CONTROL_UNAVAILABLE:
-            return "Sürecin canlı kimliği doğrulanamadı; kapatma isteği gönderilmedi."
+            return L10n.text("The live process identity could not be verified; no termination request was sent.")
         case NB_CONTROL_SIGNAL_FAILED:
-            return "macOS kapatma isteğini kabul etmedi."
+            return L10n.text("macOS did not accept the termination request.")
         default:
-            return "Kapatma isteği geçersiz; süreci yeniden seç."
+            return L10n.text("Invalid termination request; select the process again.")
         }
     }
 }

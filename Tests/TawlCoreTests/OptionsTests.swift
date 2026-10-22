@@ -1,6 +1,11 @@
 import XCTest
 @testable import TawlCore
 final class OptionsTests: XCTestCase {
+    func testLanguageOptionAcceptedBeforeOrAfterCommand() throws {
+        XCTAssertNoThrow(try CLIOptions.parse(["--lang", "en", "status"]))
+        XCTAssertNoThrow(try CLIOptions.parse(["status", "--lang", "tr"]))
+    }
+
     func testVersionAndUpdateCommandsDoNotAcceptMonitoringFlags() throws {
         XCTAssertEqual(try CLIOptions.parse(["--version"]).command, "version")
         XCTAssertEqual(try CLIOptions.parse(["version"]).command, "version")

@@ -3,6 +3,7 @@ The only OS signal below is cleanup of this script's own UI subprocess.
 """
 import os, pty, fcntl, termios, struct, subprocess, select, time, signal, json, re, tempfile
 from pathlib import Path
+from language_support import LANGUAGE, label
 root=Path(__file__).resolve().parents[2]
 outdir=root/os.environ.get('CLOSURE_OUTPUT','work/control-pty');outdir.mkdir(parents=True,exist_ok=True)
 binary=root/'work/closure-pty-harness'
@@ -16,14 +17,15 @@ def screen(data):
 
 def assert_effect(data,pid=42):
     visible=screen(data)
-    assert 'SON KAPATMA' in visible,visible
+    assert label(' TAWL / LAST TERMINATION · SYSTEM COMPARISON') in visible,visible
     assert f'PID {pid}' in visible,visible
     assert 'CPU' in visible and 'SWAP' in visible,visible
     assert request_stamp(visible),visible
     return visible
 
 def request_stamp(visible):
-    match=re.search(r'İstek (\d{2}:\d{2}:\d{2})',visible)
+    pattern = re.escape(label('PID {0} · Request {1}')).replace(r'\{0\}', r'\d+').replace(r'\{1\}', r'(\d{2}:\d{2}:\d{2})')
+    match=re.search(pattern,visible)
     return match.group(1) if match else None
 
 def drain(fd, seconds=.22):
@@ -52,7 +54,7 @@ class UI:
         try:
             self.read(.6)
             assert b'TAWL' in self.data,(name,self.data[-500:])
-            if start_detail: self.key(b'\r','AYRINTI')
+            if start_detail: self.key(b'\r',label('DETAILS · '))
         except BaseException:
             self.cleanup();raise
     def mode(self,value):
@@ -80,14 +82,14 @@ class UI:
         return [json.loads(line) for line in self.log.read_text().splitlines() if json.loads(line)['event']==kind]
     def manager(self):
         previous=len(self.events('prepare'))
-        self.key(b'x','SÜREÇ KAPATMA')
+        self.key(b'x',label('PROCESS TERMINATION'))
         assert len(self.events('prepare'))==previous,'opening the manager must not prepare a native action'
     def preview(self):
         previous=len(self.events('prepare'))
-        self.manager();self.key(b'\r','ONAY BEKLİYOR')
+        self.manager();self.key(b'\r',label('AWAITING CONFIRMATION'))
         assert len(self.events('prepare'))==previous+1
     def leave_manager(self):
-        self.key(b'\x1b','AYRINTI')
+        self.key(b'\x1b',label('DETAILS · '))
     def confirm(self):
         self.key(b'\x1b[C');return self.key(b'\r')
     def finish(self):
@@ -124,35 +126,35 @@ def trial(name,body,**kwargs):
         ui.cleanup()
 
 def default_cancel(ui):
-    ui.preview();ui.key(b'\r','SÜREÇ KAPATMA');assert not ui.events('submit');ui.leave_manager()
+    ui.preview();ui.key(b'\r',label('PROCESS TERMINATION'));assert not ui.events('submit');ui.leave_manager()
 def escape(ui):
-    ui.preview();ui.key(b'\x1b','SÜREÇ KAPATMA');assert not ui.events('submit');ui.leave_manager()
+    ui.preview();ui.key(b'\x1b',label('PROCESS TERMINATION'));assert not ui.events('submit');ui.leave_manager()
 def confirm_once(ui):
     ui.preview();data=ui.confirm()
     if effects: assert_effect(data)
-    else: assert b'BEKLEN' in data
+    else: assert label('REQUEST SENT · WAITING').encode() in data
     assert [x['processID'] for x in ui.events('submit')]==['42:100']
     ui.key(b'\r');ui.key(b'\r\r\r');assert len(ui.events('submit'))==1
 
 def queued_preview(ui):
-    ui.key(b'x\t\r','SÜREÇ KAPATMA')
+    ui.key(b'x\t\r',label('PROCESS TERMINATION'))
     assert not ui.events('prepare') and not ui.events('submit')
-    data=ui.key(b'\r\t\r','ONAY BEKLİYOR')
-    assert '› Vazgeç'.encode() in data
+    data=ui.key(b'\r\t\r',label('AWAITING CONFIRMATION'))
+    assert label('› Cancel').encode() in data
     assert len(ui.events('prepare'))==1 and not ui.events('submit')
-    ui.key(b'\r','SÜREÇ KAPATMA');assert not ui.events('submit')
+    ui.key(b'\r',label('PROCESS TERMINATION'));assert not ui.events('submit')
 def small_view(ui):
     ui.preview();ui.resize(79,23);ui.read();ui.key(b'\x1b[C');ui.key(b'\r')
     assert not ui.events('submit')
-    ui.resize(100,30);data=ui.read();assert '› Vazgeç'.encode() in data
-    ui.key(b'\x1b','SÜREÇ KAPATMA');ui.leave_manager()
+    ui.resize(100,30);data=ui.read();assert label('› Cancel').encode() in data
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));ui.leave_manager()
     ui.resize(79,23);ui.read();ui.key(b'x');assert len(ui.events('prepare'))==1
     ui.resize(100,30);ui.read()
 def selection_update(ui):
     ui.preview();ui.mode('resort');ui.read(.45);ui.key(b'2\x1b[B\t')
     ui.confirm();assert [x['processID'] for x in ui.events('submit')]==['42:100']
 def stale_prepare(ui):
-    ui.manager();ui.key(b'\r','Ölçüm güncel değil');assert not ui.events('prepare') and not ui.events('submit')
+    ui.manager();ui.key(b'\r',label('The sample is stale; wait for a new live sample.'));assert not ui.events('prepare') and not ui.events('submit')
 def rejected_confirmation(ui,mode,text):
     ui.preview();ui.mode(mode);ui.read(.35);data=ui.confirm()
     assert text.encode() in data,(mode,data[-1200:])
@@ -164,7 +166,7 @@ def split_paste(ui):
     ui.preview()
     ui.key(b'\x1b[200~\x1b[C');ui.key(b'\r');ui.key(b'\x1b[201~')
     assert not ui.events('submit')
-    data=ui.key(b'\r','SÜREÇ KAPATMA');assert not ui.events('submit')
+    data=ui.key(b'\r',label('PROCESS TERMINATION'));assert not ui.events('submit')
 def long_notice(ui):
     ui.preview();ui.key(b'\x1b[C');data=ui.key(b'\r')
     assert not ui.events('submit'), 'unread mandatory impact must block confirmation'
@@ -176,42 +178,42 @@ def long_notice(ui):
 def effect_reopen(ui):
     ui.preview();request=request_stamp(assert_effect(ui.confirm()))
     first=ui.events('sent')[0]
-    ui.key(b'\x1b','SÜREÇ KAPATMA')
+    ui.key(b'\x1b',label('PROCESS TERMINATION'))
     count=len(ui.events('sample'));ui.mode('improved');ui.read(.65)
     assert len(ui.events('sample'))>count,'collection stopped when comparison was hidden'
     visible=assert_effect(ui.key(b'e'))
     assert request_stamp(visible)==request,'reopening changed the request boundary'
-    assert 'ÇIKIŞI DOĞRULANDI' not in visible,'metric improvement cannot prove native exit'
+    assert label('SELECTED PROCESS EXIT VERIFIED') not in visible,'metric improvement cannot prove native exit'
     assert ui.events('sent')==[first],'reopening comparison must not submit again'
-    ui.key(b'\x1b','SÜREÇ KAPATMA');ui.leave_manager()
-    ui.key(b'h','GEÇMİŞ');ui.read(.35)
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));ui.leave_manager()
+    ui.key(b'h',label('HISTORY'));ui.read(.35)
     assert_effect(ui.key(b'e'))
     assert ui.events('sent')==[first],'history navigation cannot create a new comparison request'
 
 def effect_cancel_without_previous(ui):
-    ui.preview();ui.key(b'\r','SÜREÇ KAPATMA');ui.leave_manager()
-    assert 'SON KAPATMA' not in screen(ui.key(b'e'))
+    ui.preview();ui.key(b'\r',label('PROCESS TERMINATION'));ui.leave_manager()
+    assert label(' TAWL / LAST TERMINATION · SYSTEM COMPARISON') not in screen(ui.key(b'e'))
     assert not ui.events('sent')
 
 def effect_rejected_without_previous(ui):
     ui.mode('reject');ui.preview();ui.confirm()
     assert len(ui.events('rejected'))==1 and not ui.events('sent')
-    ui.key(b'\x1b','SÜREÇ KAPATMA');ui.leave_manager()
-    assert 'SON KAPATMA' not in screen(ui.key(b'e'))
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));ui.leave_manager()
+    assert label(' TAWL / LAST TERMINATION · SYSTEM COMPARISON') not in screen(ui.key(b'e'))
 
 def effect_preserved_after_other_preview(ui,reject=False):
     ui.preview();request=request_stamp(assert_effect(ui.confirm()))
     original=ui.events('sent')[0]
-    ui.key(b'\x1b','SÜREÇ KAPATMA');ui.leave_manager();ui.key(b'j')
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));ui.leave_manager();ui.key(b'j')
     ui.mode('reject' if reject else 'normal')
     ui.preview()
     assert ui.events('prepare')[-1]['processID']=='43:100'
     # While a confirmation is pending, e must not hide it or reopen old report.
-    pending=screen(ui.key(b'e'));assert 'ONAY BEKLİYOR' in pending
+    pending=screen(ui.key(b'e'));assert label('AWAITING CONFIRMATION') in pending
     if reject:
         ui.confirm();assert len(ui.events('rejected'))==1
-        ui.key(b'\x1b','SÜREÇ KAPATMA')
-    else: ui.key(b'\r','SÜREÇ KAPATMA')
+        ui.key(b'\x1b',label('PROCESS TERMINATION'))
+    else: ui.key(b'\r',label('PROCESS TERMINATION'))
     ui.leave_manager()
     assert request_stamp(assert_effect(ui.key(b'e'),pid=42))==request
     assert ui.events('sent')==[original]
@@ -220,23 +222,23 @@ def effect_missing_then_resume(ui):
     ui.preview();assert_effect(ui.confirm())
     ui.mode('missing');data=ui.read(.65)
     missing=assert_effect(data)
-    assert any(word in missing.lower() for word in ('eksik','bilinmiyor','ölçüm yok','—')),missing
+    assert any(word in missing.lower() for word in (label('No measurement').lower(), label('Unknown').lower(), '—')),missing
     ui.mode('worse');assert_effect(ui.read(.65))
     assert len(ui.events('sent'))==1
 
 def effect_native_observation_is_independent(ui):
     ui.preview();assert_effect(ui.confirm())
-    ui.key(b'\x1b','SÜREÇ KAPATMA');observed=len(ui.events('observe'))
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));observed=len(ui.events('observe'))
     ui.mode('exited');ui.read(.65)
     assert len(ui.events('observe'))>observed,'native observation stopped while comparison hidden'
-    assert 'ÇIKIŞI DOĞRULANDI' in assert_effect(ui.key(b'e'))
+    assert label('SELECTED PROCESS EXIT VERIFIED') in assert_effect(ui.key(b'e'))
 
 def effect_next_accepted_replaces_previous(ui):
     ui.preview();assert_effect(ui.confirm())
-    ui.key(b'\x1b','SÜREÇ KAPATMA');ui.leave_manager();ui.key(b'j')
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));ui.leave_manager();ui.key(b'j')
     ui.preview();assert_effect(ui.confirm(),pid=43)
     assert [x['processID'] for x in ui.events('sent')]==['42:100','43:100']
-    ui.key(b'\x1b','SÜREÇ KAPATMA');assert_effect(ui.key(b'e'),pid=43)
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));assert_effect(ui.key(b'e'),pid=43)
 
 def effect_real_window(ui):
     ui.preview();assert_effect(ui.confirm());ui.mode('improved')
@@ -244,11 +246,11 @@ def effect_real_window(ui):
     print('Checking the unchanged production 60-second window with the fake controller...',flush=True)
     while time.monotonic()<deadline: ui.read(.5)
     before=assert_effect(ui.read(.3))
-    assert 'Ölçüm tamamlandı' in before,'the production window did not complete'
+    assert label('Measurement complete') in before,'the production window did not complete'
     count=len(ui.events('sample'));ui.mode('worse');after=assert_effect(ui.read(.65))
     assert len(ui.events('sample'))>count,'normal measurement must continue after comparison completes'
     assert '92.0%' not in after and '92%' not in after,'completed comparison incorporated a later metric'
-    ui.key(b'\x1b','SÜREÇ KAPATMA');reopened=assert_effect(ui.key(b'e'))
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));reopened=assert_effect(ui.key(b'e'))
     assert '92.0%' not in reopened and '92%' not in reopened,'reopening reset the completed comparison window'
     assert len(ui.events('sent'))==1
 
@@ -258,16 +260,16 @@ def manager_from_root(ui):
     visible=screen(ui.data)
     assert 'Fixture Editor' in visible and 'Fixture Worker A' in visible,visible
     assert not ui.events('prepare') and not ui.events('submit')
-    ui.key(b'\r','ONAY BEKLİYOR')
+    ui.key(b'\r',label('AWAITING CONFIRMATION'))
     assert ui.events('prepare')[-1]['pid']==42
-    ui.key(b'\x1b','SÜREÇ KAPATMA');ui.key(b'\x1b','UYGULAMALAR')
+    ui.key(b'\x1b',label('PROCESS TERMINATION'));ui.key(b'\x1b',label('Applications').upper())
 
 def manager_no_recommendation(ui):
     ui.manager();visible=screen(ui.data)
-    assert 'MANUEL' in visible and 'otomatik öneri yok' in visible,visible
+    assert label('MANUAL') in visible and label('Manual selection: no automatic recommendation. You can confirm termination.').split(".")[0] in visible,visible
     assert not ui.events('prepare') and not ui.events('submit')
     visible=screen(ui.key(b'\r'))
-    assert 'ONAY BEKLİYOR' in visible and 'Manuel seçim' in visible,visible
+    assert label('AWAITING CONFIRMATION') in visible and label('Manual selection · no automatic termination recommendation.').split(" · ")[0] in visible,visible
     assert len(ui.events('prepare'))==1 and not ui.events('submit')
     assert_effect(ui.confirm())
     assert [e['pid'] for e in ui.events('submit')]==[42]
@@ -279,7 +281,7 @@ def changed_advice_does_not_revoke_choice(ui):
 
 def manager_frozen(ui):
     ui.key(b' ');ui.manager();visible=screen(ui.key(b'\r'))
-    assert 'yalnız canlı ölçümde' in visible,visible
+    assert label('Termination is available only in live monitoring.') in visible,visible
     assert not ui.events('prepare') and not ui.events('submit')
     # Follow the displayed recovery route: leave the modal, then resume live data.
     ui.leave_manager();ui.key(b' ');ui.preview()
@@ -287,20 +289,20 @@ def manager_frozen(ui):
 
 def manager_other_workload(ui):
     # Name sort selects Fixture Editor, whose workers have no recommendation.
-    ui.key(b'1');ui.key(b'\x1b[H');ui.key(b'\r','AYRINTI');ui.manager()
+    ui.key(b'1');ui.key(b'\x1b[H');ui.key(b'\r',label('DETAILS · '));ui.manager()
     visible=screen(ui.data)
     assert 'Fixture Worker A' in visible and 'Outside Worker' not in visible,visible
     ui.key(b'\t');visible=screen(ui.data)
     assert 'Outside Worker' in visible and 'Zulu Editor' in visible,visible
-    ui.key(b'\r','ONAY BEKLİYOR')
+    ui.key(b'\r',label('AWAITING CONFIRMATION'))
     assert ui.events('prepare')[-1]['pid']==44
     ui.confirm();assert_effect(ui.data,pid=44)
     assert [entry['pid'] for entry in ui.events('submit')]==[44]
 
 def manager_prepare_failure(ui):
     ui.manager();visible=screen(ui.key(b'\r'))
-    assert 'Sentetik yerel hazırlık başarısız.' in visible,visible
-    assert 'SÜREÇ KAPATMA' in visible and 'ONAY BEKLİYOR' not in visible
+    assert 'Synthetic native preparation failed.' in visible,visible
+    assert label('PROCESS TERMINATION') in visible and label('AWAITING CONFIRMATION') not in visible
     assert len(ui.events('prepare'))==1 and not ui.events('submit')
 
 def manager_enter_encoding(ui, parts):
@@ -308,60 +310,60 @@ def manager_enter_encoding(ui, parts):
     # Exercise the real decoder at the user's 118x46 viewport with a log-only
     # controller: opening this preview must never submit a termination request.
     ui.manager()
-    assert 'MANUEL' in screen(ui.data),screen(ui.data)
+    assert label('MANUAL') in screen(ui.data),screen(ui.data)
     for part in parts: ui.key(part)
     visible=screen(ui.data)
-    assert 'ONAY BEKLİYOR' in visible,visible
-    assert '› Vazgeç' in visible,visible
+    assert label('AWAITING CONFIRMATION') in visible,visible
+    assert label('› Cancel') in visible,visible
     assert len(ui.events('prepare'))==1 and not ui.events('submit')
-    ui.key(b'\x1b','SÜREÇ KAPATMA')
+    ui.key(b'\x1b',label('PROCESS TERMINATION'))
 
 def effect_export(ui):
     ui.preview();request=request_stamp(assert_effect(ui.confirm()))
     ui.mode('improved');ui.read(.65)
     ui.key(b'd')
-    exported=list((ui.cwd/'raporlar').glob('*.html'))
+    exported=list((ui.cwd/'reports').glob('*.html'))
     assert len(exported)==1,(exported,screen(ui.data))
     report=exported[0].read_text()
     for text in ('Fixture Worker A','Fixture Editor','42','CPU','SWAP'):
         assert text.lower() in report.lower(),text
     assert report.count('<svg')>=4,'all four system metrics need standalone charts'
     visible=screen(ui.data)
-    assert 'HTML RAPOR KAYDEDİLDİ' in visible,visible
+    assert label('HTML REPORT SAVED') in visible,visible
     assert exported[0].name in ''.join(visible.replace('│','').split()),visible
     assert request_stamp(assert_effect(ui.key(b'\x1b')))==request
     assert len(ui.events('sent'))==1,'export must not repeat the closure action'
     assert exported[0].read_text()==report,'an exported report is a stable snapshot'
     # A second export is a distinct snapshot, leaving the previous file unchanged.
-    ui.key(b'd');assert len(list((ui.cwd/'raporlar').glob('*.html')))==2
+    ui.key(b'd');assert len(list((ui.cwd/'reports').glob('*.html')))==2
     assert exported[0].read_text()==report
     assert request_stamp(assert_effect(ui.key(b'\r')))==request
 
 
 def effect_export_error_retry(ui):
     ui.preview();request=request_stamp(assert_effect(ui.confirm()))
-    blocker=ui.cwd/'raporlar'
+    blocker=ui.cwd/'reports'
     blocker.write_text('This case owns this regular-file export-directory blocker.')
     visible=screen(ui.key(b'd'))
     assert blocker.is_file(),'the failed export must preserve the existing file'
-    assert 'kaydedilemedi' in visible.lower(),visible
+    assert label('COULD NOT SAVE REPORT').lower() in visible.lower(),visible
     assert len(ui.events('sent'))==1
     blocker.unlink()  # Only this case's synthetic blocker; no user files are touched.
     ui.key(b'd')  # Retry directly from the error overlay, without Escape first.
-    exported=list((ui.cwd/'raporlar').glob('*.html'))
+    exported=list((ui.cwd/'reports').glob('*.html'))
     assert len(exported)==1,(exported,screen(ui.data))
     assert exported[0].read_text().count('<svg')>=4
     visible=screen(ui.data)
-    assert 'HTML RAPOR KAYDEDİLDİ' in visible,visible
+    assert label('HTML REPORT SAVED') in visible,visible
     assert request_stamp(assert_effect(ui.key(b'\x1b')))==request
     assert len(ui.events('sent'))==1,'export retries must not repeat the closure action'
 
 def manager_keyboard_fallback(ui):
-    ui.manager();ui.key(b'i','ONAY BEKLİYOR')
+    ui.manager();ui.key(b'i',label('AWAITING CONFIRMATION'))
     assert len(ui.events('prepare'))==1 and not ui.events('submit')
     # Space on the default cancel is harmless.
-    ui.key(b' ','SÜREÇ KAPATMA');assert not ui.events('submit')
-    ui.key(b'i','ONAY BEKLİYOR');ui.key(b'\x1b[C')
+    ui.key(b' ',label('PROCESS TERMINATION'));assert not ui.events('submit')
+    ui.key(b'i',label('AWAITING CONFIRMATION'));ui.key(b'\x1b[C')
     assert_effect(ui.key(b' '))
     assert len(ui.events('submit'))==1
 
@@ -372,11 +374,11 @@ trial('queued-preview-keys',queued_preview)
 trial('small-viewport',small_view)
 trial('selection-update-bound-target',selection_update)
 trial('stale-prepare',stale_prepare,mode='stale')
-trial('stale-confirmation',lambda ui:rejected_confirmation(ui,'stale','Ölçüm güncel değil'))
+trial('stale-confirmation',lambda ui:rejected_confirmation(ui,'stale',label('The sample is stale; wait for a new live sample.')))
 trial('changed-advice-keeps-explicit-choice',changed_advice_does_not_revoke_choice)
-trial('changed-owner-rejected',lambda ui:rejected_confirmation(ui,'unowned','uygulama süreci doğrulanamadı'))
-trial('changed-app-rejected',lambda ui:rejected_confirmation(ui,'changed-app','Etkilenecek uygulama değişti'))
-trial('replaced-identity',lambda ui:rejected_confirmation(ui,'replaced','kimliği değişmiş'))
+trial('changed-owner-rejected',lambda ui:rejected_confirmation(ui,'unowned',label('An application process owned by this user could not be verified.')))
+trial('changed-app-rejected',lambda ui:rejected_confirmation(ui,'changed-app',label('The affected application changed; review it again.')))
+trial('replaced-identity',lambda ui:rejected_confirmation(ui,'replaced',label('The process exited or its identity changed; no request was sent.')))
 if os.environ.get('CLOSURE_FINAL_FEATURES')=='1':
     trial('split-bracketed-paste',split_paste)
     trial('long-mandatory-info',long_notice,width=80,height=24,mode='long')

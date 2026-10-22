@@ -11,8 +11,8 @@ final class ClosureControlTests: XCTestCase {
         XCTAssertTrue(s.closureControlVisible); XCTAssertFalse(s.detailVisible)
         XCTAssertNil(s.closureSession); XCTAssertTrue(spy.prepared.isEmpty)
         let text=TerminalRenderer.render(s,width:80,height:24).lines.joined()
-        XCTAssertTrue(text.contains("SÜREÇ KAPATMA")); XCTAssertTrue(text.contains("Browser"))
-        XCTAssertTrue(text.contains("Enter / i: etkiyi incele"))
+        XCTAssertTrue(text.contains("PROCESS TERMINATION")); XCTAssertTrue(text.contains("Browser"))
+        XCTAssertTrue(text.contains("Enter / i: review impact"))
         s.prepareControlledClosure(using:spy,now:101)
         XCTAssertEqual(spy.prepared.count,1); XCTAssertEqual(s.closureSession?.intent.pid,42)
         XCTAssertTrue(spy.submitted.isEmpty)
@@ -24,7 +24,7 @@ final class ClosureControlTests: XCTestCase {
         var s=state(snap); let spy=ClosureControllerSpy()
         s.openClosureControl(now:101)
         var text=TerminalRenderer.render(s,width:80,height:24).lines.joined()
-        XCTAssertTrue(text.contains("MANUEL")); XCTAssertTrue(text.contains("otomatik öneri yok"))
+        XCTAssertTrue(text.contains("MANUAL")); XCTAssertTrue(text.contains("no automatic recommendation"))
         XCTAssertTrue(s.closureControlRows.allSatisfy(\.eligible))
         s.prepareControlledClosure(using:spy,now:101)
         XCTAssertNotNil(s.closureSession); XCTAssertEqual(spy.prepared.count,1)
@@ -32,34 +32,34 @@ final class ClosureControlTests: XCTestCase {
         s.closeClosureControl(); s.toggleFrozen(); s.openClosureControl(now:101)
         s.prepareControlledClosure(using:spy,now:101)
         text=TerminalRenderer.render(s,width:80,height:24).lines.joined()
-        XCTAssertTrue(text.contains("canlı ölçüm")); XCTAssertEqual(spy.prepared.count,1)
-        XCTAssertTrue(text.contains("Space ile canlı ölçüme geç"))
+        XCTAssertTrue(text.contains("live samples")); XCTAssertEqual(spy.prepared.count,1)
+        XCTAssertTrue(text.contains("Space to resume live samples"))
         s.toggleHistory()
         text=TerminalRenderer.render(s,width:80,height:24).lines.joined()
-        XCTAssertTrue(text.contains("h, ardından Space ile canlı ölçüme geç"))
+        XCTAssertTrue(text.contains("h, then Space to resume live samples"))
     }
     func testRecommendationsRemainPrioritizedAndAllScopeExcludesManualRows() {
         var snap=TerminalClosureTests().snapshot()
         snap.processes[0].footprintBytes=104_857_600
         var s=state(snap); s.openClosureControl(now:101)
         XCTAssertEqual(s.closureControlSelectedID,"43:101")
-        XCTAssertEqual(s.closureControlRows.map(\.badge),["ÖNERİ","MANUEL"])
+        XCTAssertEqual(s.closureControlRows.map(\.badge),["SUGGESTED","MANUAL"])
         s.toggleClosureControlScope()
         XCTAssertEqual(s.closureControlRows.map(\.process.pid),[43])
         s.toggleClosureControlScope()
         XCTAssertEqual(s.closureControlRows.count,2)
     }
     func testNativeFailureRemainsInControlAndSelectionDoesNotPrepare() {
-        var s=state(); let spy=ClosureControllerSpy(); spy.failure="Sentetik yerel hazırlık başarısız."
+        var s=state(); let spy=ClosureControllerSpy(); spy.failure="Synthetic native preparation failed."
         s.openClosureControl(now:101); s.moveClosureControl(by:1)
         XCTAssertTrue(spy.prepared.isEmpty)
         s.prepareControlledClosure(using:spy,now:101)
         XCTAssertTrue(s.closureControlVisible); XCTAssertNil(s.closureSession)
         let text=TerminalRenderer.render(s,width:80,height:24).lines.joined()
-        XCTAssertTrue(text.contains("Sentetik yerel hazırlık başarısız.")); XCTAssertTrue(spy.submitted.isEmpty)
-        XCTAssertTrue(text.contains("ENGELLİ"))
-        XCTAssertTrue(text.contains("yeniden dene"))
-        XCTAssertFalse(text.contains("Enter / i: etkiyi incele ve onaya geç"))
+        XCTAssertTrue(text.contains("Synthetic native preparation failed.")); XCTAssertTrue(spy.submitted.isEmpty)
+        XCTAssertTrue(text.contains("BLOCKED"))
+        XCTAssertTrue(text.contains("retry"))
+        XCTAssertFalse(text.contains("Enter / i: review impact and continue to confirmation"))
         spy.failure = nil
         s.prepareControlledClosure(using:spy,now:101)
         XCTAssertNotNil(s.closureSession)
@@ -72,7 +72,7 @@ final class ClosureControlTests: XCTestCase {
         s.accept(next); s.prepareControlledClosure(using:spy,now:102)
         XCTAssertEqual(s.closureControlSelectedID,original)
         XCTAssertNil(s.closureSession); XCTAssertTrue(spy.prepared.isEmpty)
-        XCTAssertTrue(s.closureControlMessage.contains("ölçümde yok"))
+        XCTAssertTrue(s.closureControlMessage.contains("missing from this sample"))
     }
     func testAllRecommendationsScopeFindsOtherApplications() {
         var snap=TerminalClosureTests().snapshot()
@@ -100,7 +100,7 @@ final class ClosureControlTests: XCTestCase {
         var blocked=state(snap);blocked.openClosureControl(now:101)
         try save(blocked,80,24,"control-blocked-80x24")
         blocked.toggleFrozen();try save(blocked,143,45,"control-history-143x45")
-        let spy=ClosureControllerSpy();spy.failure="Sentetik yerel hazırlık başarısız."
+        let spy=ClosureControllerSpy();spy.failure="Synthetic native preparation failed."
         s.prepareControlledClosure(using:spy,now:101);try save(s,80,24,"control-error-80x24")
         var populated=TerminalClosureTests().snapshot()
         for i in 0..<36 {
@@ -110,7 +110,7 @@ final class ClosureControlTests: XCTestCase {
         }
         var many=state(populated);many.openClosureControl(now:101)
         try save(many,143,45,"control-populated-143x45")
-        for i in populated.processes.indices {populated.processes[i].applicationName=String(repeating:"Çok uzun uygulama ",count:12)}
+        for i in populated.processes.indices {populated.processes[i].applicationName=String(repeating:"Very long application ",count:12)}
         many=state(populated);many.openClosureControl(now:101)
         try save(many,80,24,"control-long-80x24")
         many.prepareControlledClosure(using:ClosureControllerSpy(),now:101)
@@ -124,7 +124,7 @@ final class ClosureControlTests: XCTestCase {
         XCTAssertTrue(s.impactExportVisible);XCTAssertNotNil(s.impactExportURL)
         XCTAssertTrue(s.impactExportError.isEmpty)
         let first=s.impactExportURL!,before=try Data(contentsOf:first)
-        XCTAssertTrue(TerminalRenderer.render(s,width:80,height:24).lines.joined().contains("HTML RAPOR KAYDEDİLDİ"))
+        XCTAssertTrue(TerminalRenderer.render(s,width:80,height:24).lines.joined().contains("HTML REPORT SAVED"))
         s.captureImpact(ClosureImpactUITests().sample(102,after:true),now:102)
         s.exportImpact(directory:dir)
         XCTAssertNotEqual(s.impactExportURL,first);XCTAssertEqual(try Data(contentsOf:first),before)

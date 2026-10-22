@@ -1,41 +1,41 @@
-# Onaylı süreç kapatma — yerel güvenlik sınırı
+# Confirmed process closure — native safety boundary
 
-22 Ekim 2026. Yalnız kullanıcı tarafından seçilmiş, sahipliği ve uygulaması doğrulanmış tek bir süreç için uygulanır. Toplu kapatma, süreç ağacına sinyal, `SIGKILL`, yetki yükseltme veya arka planda otomatik kapatma yoktur.
+October 22, 2026. This applies only to one user-selected process with verified ownership and application identity. No bulk termination, process-tree signalling, `SIGKILL`, privilege escalation or automatic background closure.
 
-## Kimliğe bağlı işlem
+## Identity-bound operation
 
-Swift katmanı canlı ve taze ölçümü, sahipliği, uygulama kimliğini ve açık onayı doğrular. C katmanı hazırlık sırasında PID, işletim sistemi başlangıç zamanı, kullanıcı, üst süreç, çalıştırılabilir yol ve audit token saklar. Yolun uygulama ailesi onay ekranındaki uygulama ile yeniden eşleştirilir. Hazırlık 30 saniye geçerlidir ve tek kullanımlıktır; her gönderme girişimi onu tüketir.
+Swift validates live/fresh measurement, ownership, application identity and explicit confirmation. During preparation, C retains PID, OS start time, user, parent, executable path and audit token. The path's application family is matched again to the confirmation's application. Preparation lasts 30 seconds and is single-use; every submission attempt consumes it.
 
-Gönderim öncesinde yerel bilgiler tekrar okunur. Kimlik, sahiplik, yol veya üst süreç değişirse istek reddedilir. Son çağrı `proc_signal_with_audittoken(..., SIGTERM)` kullanır. PID sayısına gönderim yapan `kill(pid, ...)` yedeği yoktur. Audit token okunamazsa işlem kapalı kalır.
+Native information is reread before sending. Changed identity, ownership, path or parent rejects the request. The final call is `proc_signal_with_audittoken(..., SIGTERM)`. There is no `kill(pid, ...)` fallback that targets only a numeric PID. An unreadable audit token leaves the operation blocked.
 
-Standart macOS SDK başlıklarındaki `task_name_for_pid` ve `task_info(TASK_AUDIT_TOKEN)` ile alınan token, uygulamanın PID neslini de taşır. XNU kaynak kodunda `proc_find_audit_token` süreç referansını alırken PID neslini doğrular; böylece eski PID'nin başka bir sürece verilmesi ve aynı PID ile yeni yürütülebilir başlatılması eski onayı yeni hedefe yönlendirmez. [Apple XNU süreç kimliği](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_proc.c), [audit token okuma](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/kern/task.c)
+The token obtained through standard macOS SDK `task_name_for_pid` and `task_info(TASK_AUDIT_TOKEN)` also carries the PID generation. XNU's `proc_find_audit_token` checks that generation when acquiring the process reference, preventing PID reuse or a new executable under the same PID from redirecting old consent to a new target. [Apple XNU process identity](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_proc.c), [audit token retrieval](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/kern/task.c).
 
-`proc_signal_with_audittoken` sıfırda başarı, hatada errno değeri döndürür. `proc_terminate` ve `proc_terminate_with_audittoken` kullanılmaz: işletim sistemi ani sonlandırmaya uygun gördüğü süreçler için `SIGKILL` seçebilir. Burada sinyal açıkça `SIGTERM` olarak sabittir. [Apple libproc sarmalayıcısı](https://github.com/apple-oss-distributions/xnu/blob/main/libsyscall/wrappers/libproc/libproc.c), [XNU sinyal ve terminate ayrımı](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/proc_info.c)
+`proc_signal_with_audittoken` returns zero on success and an errno value on failure. `proc_terminate` and `proc_terminate_with_audittoken` are not used: the OS may choose `SIGKILL` for processes it considers eligible for sudden termination. Here the signal is explicitly fixed to `SIGTERM`. [Apple libproc wrapper](https://github.com/apple-oss-distributions/xnu/blob/main/libsyscall/wrappers/libproc/libproc.c), [XNU signal versus terminate behavior](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/proc_info.c).
 
-## Korunan hedefler
+## Protected targets
 
-PID 0/1, Nabız'ın kendisi ve üst süreç zinciri; root, başka kullanıcı veya değiştirilmiş yetkiler; işletim sistemi yolları ve sistem süreçleri; doğrulanamayan uygulama yolları kapatılmaz. Bilinen veritabanı ve sanallaştırma süreçleri hem ürün sınıflandırmasında hem yerel yol denetiminde korunur. Sınıflandırma bütün yazılımları kusursuz tanıdığı iddiasında değildir. Terminal katmanı öneri olmasa da uygun uygulama sürecinde MANUEL seçime izin verir. Öneri bulunması kapatma yetkisinin yerine geçmez; önerinin kaybolması açık seçimi iptal etmez. C API tek başına bir öneri motoru değildir.
+PID 0/1, TAWL itself and its ancestry; root, other users or changed privileges; OS paths/system processes; and unverifiable application paths cannot be terminated. Known database and virtualization processes are protected both by product classification and native path checks. Classification does not claim perfect knowledge of every program. The terminal allows MANUAL selection of an eligible application process without a recommendation. Advice never substitutes for authorization, and disappearing advice does not cancel explicit selection. The C API alone is not a recommendation engine.
 
-## Sonuç ve sınırlar
+## Outcome and limits
 
-Sinyalin kabul edilmesi, sürecin kapandığı anlamına gelmez. Ayrı, salt okunur kontrol aynı kimliğin hâlâ çalıştığını, çıktığını, değiştiğini veya okunamadığını bildirir. Zombie süreç çıkmış sayılır. PID aynı kalıp program değişmişse “kimlik değişti” sonucu alınır; bu uygulamanın tamamının kapandığını kanıtlamaz.
+Signal acceptance does not establish exit. A separate read-only check reports the same identity as running, exited, changed or unreadable. Zombies count as exited. An unchanged PID with a changed executable produces “identity changed”; it does not establish closure of the entire application.
 
-`SIGTERM`, macOS uygulama menüsündeki Çık komutu değildir; uygulamanın kaydetme sorusu göstereceği garanti edilmez. Kaydedilmemiş işler kaybolabilir. Bir yardımcı süreç kesilince sekme, pencere veya uygulamanın tamamı etkilenebilir; uygulama süreci yeniden başlatabilir. Süreç sinyali yok sayabilir. Araç zorla sonlandırmaya geçmez.
+`SIGTERM` is not the macOS application's Quit command and does not guarantee a save prompt. Unsaved work may be lost. Stopping a helper can affect a tab, window or whole application; the application may restart it. A process may ignore the signal. TAWL never escalates to force termination.
 
-## Doğrulama
+## Validation
 
-- `sh Tests/Native/test_process_control.sh`: yalnız kendisi oluşturduğu, 20 saniyelik failsafe içeren uygulama taklidi alt süreçlerde gerçek SIGTERM testi. Başlangıç/token/yol/kullanıcı değişikliği, süre aşımı, tekrar gönderim, self/üst süreç koruması, aynı PID ile exec, SIGTERM'i yok sayma ve korunan yollar kapsanır.
-- Swift adaptörü de kendi derlenmiş geçici uygulama taklidi ile uygulama eşleştirmesini, iptali, tek gönderimi ve çıkış gözlemini sınar. Mevcut kullanıcı uygulamaları test hedefi değildir.
-- Ayrı salt okunur kontrol üç mevcut kullanıcı uygulaması sürecinde audit token hazırlığının çalıştığını doğruladı; hiçbirine sinyal gönderilmedi.
+- `sh Tests/Native/test_process_control.sh` sends real SIGTERM only to its own application-like children with a 20-second failsafe. It covers start/token/path/user changes, timeout, repeated submission, self/ancestor protection, same-PID exec, ignored SIGTERM and protected paths.
+- The Swift adapter tests application matching, cancellation, single submission and exit observation using its own compiled disposable application fixture. Existing user applications are not targets.
+- A separate read-only check confirmed audit-token preparation on three existing user-application processes; none received a signal.
 
-Sistem macOS SDK 27.0 ile derlendi; paket alt sınırı macOS 15. İlave kurulum, özel SDK başlığı, özel proc_info sabiti, entitlement veya yönetici izni kullanılmadı. Diğer macOS sürümlerindeki izin farkları çalışma anında kapalı sonuç üretir.
+This checkpoint built with macOS SDK 27.0 and a macOS 15 deployment floor. No added installation, private SDK header, private proc_info constant, entitlement or administrator permission was used. Permission differences on other macOS versions fail closed at runtime.
 
-22 Ekim manuel seçim düzeltmesi: önceki “öneri yoksa engelle” koşulu, uygulama toplamı büyük olup her yardımcı süreç 2 GiB altında kaldığında kullanıcıyı kapatma akışına hiç sokmuyordu. Öneri yetkiden ayrıldı. Yeni gerçek PTY testi kendi düşük ayak izli, önerisiz uygulamasında x → MANUEL → etki/onay → tek SIGTERM → çıkış doğrulama → karşılaştırma → dört grafikli HTML akışını çalıştırır. Kaynaklar gerçek sistem okumalarıdır; düşüş garantisi aranmaz.
+October 22 manual-selection correction: the earlier “block without recommendation” rule kept users out of closure when an application total was large but every helper stayed below 2 GiB. Recommendation was separated from permission. A new real PTY test uses its own low-footprint application without advice: x → MANUAL → impact/confirmation → one SIGTERM → verified exit → comparison → four-chart HTML. Resources come from real system readings; no decrease is guaranteed or asserted.
 
-## Terminal.app üst süreç denetimi
+## Terminal.app ancestry checks
 
-Terminal.app ile Warp farkı araştırılırken yerel hazırlığın üst süreç zincirindeki tam BSD okuma reddini tüm hedefler için `PROTECTED` saydığı bulundu. Canlı root süreçte `PROC_PIDTBSDINFO` EPERM dönerken `PROC_PIDT_SHORTBSDINFO` okunabildi; Terminal benzeri Nabız→shell→root login→Terminal→launchd zinciriyle eski kodun ilgisiz hedefi de engellediği yeniden üretildi.
+Investigation of the Terminal.app/Warp difference found that native preparation treated a denied full BSD read anywhere in the ancestor chain as `PROTECTED` for every target. On a live root process, `PROC_PIDTBSDINFO` returned EPERM while `PROC_PIDT_SHORTBSDINFO` remained readable. A Terminal-like monitor → shell → root login → Terminal → launchd chain reproduced the old false block of an unrelated target.
 
-Üst süreç yürüyüşü artık yalnız kısa BSD metadata ile yapılır; tam boyut, PID, geçerli ebeveyn, döngü ve derinlik sınırı kontrol edilir. Okunamayan zincir yine engeller ancak `ANCESTRY_UNAVAILABLE` olarak açıklanır. Hedefin tam BSD, kullanıcı, audit-token, uygulama yolu ve tek kullanımlık onay kontrolleri değişmedi. Swift kontrol ekranı yerel hazırlık reddini kırmızı ENGELLİ ve yeniden deneme olarak gösterir.
+Ancestor traversal now uses short BSD metadata only, validating full returned size, PID, valid parent, loops and depth. An unreadable chain still blocks but reports `ANCESTRY_UNAVAILABLE`. Full BSD, user, audit-token, application-path and single-use consent checks for the target are unchanged. Swift shows native preparation rejection as red BLOCKED with retry.
 
-`Tests/Native/process_ancestry_test.c` root köprüsü, gerçek üst süreçler ve bozuk/eksik zincirleri kapsar; runner toplam 9 yerel test grubunu çalıştırır. Kısa BSD yapısı ve işlem türü Apple'ın [proc_info.h kaynağında](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/proc_info.h) tanımlıdır. Kullanıcının önceki Terminal.app zinciri canlı yakalanmadığından o oturumun kesin reddetme noktası doğrudan ölçülmüş değildir.
+`Tests/Native/process_ancestry_test.c` covers the root bridge, actual ancestors and malformed/missing chains; the runner executes nine native test groups. Apple's [proc_info.h](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/proc_info.h) defines the short BSD structure and operation. The user's original live Terminal.app chain was not captured, so its exact rejection point was not directly measured.

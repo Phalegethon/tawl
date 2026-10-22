@@ -2,6 +2,7 @@
 .swiftpm/
 work/
 raporlar/
+reports/
 /tawl
 *.tawl
 *.nabiz

@@ -22,17 +22,17 @@ public enum ProcessClosureBlock: Error, Equatable {
 
     public var message: String {
         switch self {
-        case .notLive: return "Kapatma yalnız canlı ölçümde kullanılabilir."
-        case .staleSample: return "Ölçüm güncel değil; yeni canlı ölçümü bekle."
-        case .identityChanged: return "Süreç kapanmış veya kimliği değişmiş; istek gönderilmedi."
-        case .applicationChanged: return "Etkilenecek uygulama değişti; yeniden incele."
-        case .ownershipUnknown: return "Bu kullanıcıya ait uygulama süreci doğrulanamadı."
-        case .protectedProcess: return "Sistem, veritabanı veya sanal makine süreci buradan kapatılamaz."
-        case .noRecommendation: return "Bu süreç için güncel kapatma önerisi yok."
-        case .recommendationChanged: return "Önerinin dayanağı değişti; güncel durumu yeniden incele."
-        case .expired: return "Onay ekranının süresi doldu; süreci yeniden seç."
-        case .cancelled: return "Kapatma iptal edildi; istek gönderilmedi."
-        case .notPending: return "Bu onay daha önce işlendi; yeniden istek gönderilmedi."
+        case .notLive: return L10n.text("Termination is available only in live monitoring.")
+        case .staleSample: return L10n.text("The sample is stale; wait for a new live sample.")
+        case .identityChanged: return L10n.text("The process exited or its identity changed; no request was sent.")
+        case .applicationChanged: return L10n.text("The affected application changed; review it again.")
+        case .ownershipUnknown: return L10n.text("An application process owned by this user could not be verified.")
+        case .protectedProcess: return L10n.text("System, database, and virtual-machine processes cannot be terminated here.")
+        case .noRecommendation: return L10n.text("No current termination recommendation exists for this process.")
+        case .recommendationChanged: return L10n.text("The recommendation evidence changed; review the current state again.")
+        case .expired: return L10n.text("The confirmation screen expired; select the process again.")
+        case .cancelled: return L10n.text("Termination cancelled; no request was sent.")
+        case .notPending: return L10n.text("This confirmation was already processed; no duplicate request was sent.")
         }
     }
 }
@@ -81,11 +81,11 @@ public func prepareProcessClosure(process: ProcessSample, snapshot: Snapshot, as
         processName: cleanText(current.name), applicationID: current.applicationID,
         applicationName: cleanText(current.applicationName), applicationMemberCount: memberCount,
         reasons: assessment.recommendations.isEmpty
-            ? ["Manuel seçim · otomatik kapatma önerisi yok."]
+            ? [L10n.text("Manual selection · no automatic termination recommendation.")]
             : assessment.recommendations.map { cleanText($0.title) },
-        impact: ["Yalnız seçili süreç (PID \(current.pid)) için kapatma isteği gönderilir.",
-                 "\(cleanText(current.applicationName)) içindeki sekme, pencere veya arka plan işi kesilebilir; uygulamanın tamamı da etkilenebilir.",
-                 "Kaydedilmemiş değişiklikler kaybolabilir. Diğer süreçlere doğrudan istek gönderilmez; uygulama bu süreci yeniden açabilir."],
+        impact: [L10n.text("A termination request will be sent only to the selected process (PID \(current.pid))."),
+                 L10n.text("A tab, window, or background task in \(cleanText(current.applicationName)) may be interrupted; the entire application may also be affected."),
+                 L10n.text("Unsaved changes may be lost. No direct request is sent to other processes; the application may restart this process.")],
         createdAt: now, recommendationKinds: assessment.recommendations.map(\.kind)))
 }
 

@@ -15,7 +15,7 @@ public enum ClosureImpactExporter {
         let stamp = DateFormatter()
         stamp.locale = Locale(identifier: "en_US_POSIX"); stamp.timeZone = TimeZone(secondsFromGMT: 0)
         stamp.dateFormat = "yyyyMMdd-HHmmss"
-        let name = "tawl-kapatma-\(stamp.string(from: exportedAt))-pid\(impact.intent.pid)-\(UUID().uuidString.lowercased()).html"
+        let name = "tawl-closure-\(stamp.string(from: exportedAt))-pid\(impact.intent.pid)-\(UUID().uuidString.lowercased()).html"
         let fd = openat(directoryFD, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
         guard fd >= 0 else { throw posixError() }
         var saved = false
@@ -46,37 +46,37 @@ public enum ClosureImpactExporter {
                             exportedAt: Date = Date()) -> String {
         let summary = impact.summary, intent = impact.intent
         let complete = impact.isComplete
-        let phase = complete ? "Ölçüm tamamlandı" : "Kısmi rapor · \(seconds(impact.elapsed)) / 60 sn"
+        let phase = complete ? L10n.text("Measurement complete") : L10n.text("Partial report · \(seconds(impact.elapsed)) / 60 s")
         let outcome = outcome(status, complete: complete)
         let metrics = metrics(impact)
         let rows = metrics.map { metric in
             "<tr><th scope=\"row\">\(escape(metric.title))<small>\(escape(metric.statistic))</small></th><td>\(escape(metric.before))<small>\(escape(metric.beforeDetail))</small></td><td>\(escape(metric.after))<small>\(escape(metric.afterDetail))</small></td><td class=\"delta\">\(escape(metric.delta))</td></tr>"
         }.joined(separator: "\n")
         let graphs = metrics.enumerated().map { index, metric in
-            "<section class=\"chart\"><div class=\"chart-heading\"><div><span class=\"eyebrow\">SİSTEM GENELİ</span><h2>\(escape(metric.title))</h2></div><div class=\"chart-change\">\(escape(metric.before)) <span>→</span> \(escape(metric.after))<small>\(escape(metric.delta))</small></div></div><div class=\"plot-scroll\">\(chart(impact, metric: metric, index: index))</div><p class=\"chart-note\">\(escape(metric.note))</p></section>"
+            "<section class=\"chart\"><div class=\"chart-heading\"><div><span class=\"eyebrow\">\(escape(L10n.text("SYSTEM-WIDE")))</span><h2>\(escape(metric.title))</h2></div><div class=\"chart-change\">\(escape(metric.before)) <span>→</span> \(escape(metric.after))<small>\(escape(metric.delta))</small></div></div><div class=\"plot-scroll\">\(chart(impact, metric: metric, index: index))</div><p class=\"chart-note\">\(escape(metric.note))</p></section>"
         }.joined(separator: "\n")
         let reasons = intent.reasons.map { "<li>\(escape($0))</li>" }.joined()
         let effects = intent.impact.map { "<li>\(escape($0))</li>" }.joined()
-        let sampleCounts = "\(summary.before.sampleCount) önce / \(summary.after.sampleCount) sonra"
+        let sampleCounts = L10n.text("\(summary.before.sampleCount) before / \(summary.after.sampleCount) after")
         return """
         <!doctype html>
-        <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+        <html lang="\(L10n.language.rawValue)"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-        <title>TAWL · Kapatma karşılaştırması · \(escape(intent.applicationName)) · PID \(intent.pid)</title>
+        <title>TAWL · \(escape(L10n.text("Termination comparison"))) · \(escape(intent.applicationName)) · PID \(intent.pid)</title>
         <style>\(stylesheet)</style></head><body><main>
-        <header><div class="brand">TAWL <span>/ KAYNAK RAPORU</span></div><span class="phase \(complete ? "complete" : "partial")">\(escape(phase))</span></header>
-        <div class="intro"><p class="eyebrow">KAPATMA ÖNCESİ / SONRASI</p><h1>Kaynak kullanımında<br>ne değişti?</h1><p>Önceki 30 saniye ile isteği izleyen \(seconds(impact.elapsed)) saniyenin sistem ölçümleri.</p></div>
-        <section class="identity"><div><span class="label">\(status == .exitObserved ? "Kapatılan süreç" : "Hedeflenen süreç")</span><h2>\(escape(intent.processName))</h2><p class="mono">PID \(intent.pid) <span class="muted">· Kimlik \(escape(intent.processID))</span></p></div><div><span class="label">Etkilenen uygulama</span><h2>\(escape(intent.applicationName))</h2><p>İstek anında \(intent.applicationMemberCount) süreç · yalnız seçili PID hedeflendi.</p></div></section>
+        <header><div class="brand">TAWL <span>/ \(escape(L10n.text("RESOURCE REPORT")))</span></div><span class="phase \(complete ? "complete" : "partial")">\(escape(phase))</span></header>
+        <div class="intro"><p class="eyebrow">\(escape(L10n.text("BEFORE / AFTER TERMINATION")))</p><h1>\(escape(L10n.text("What changed in resource usage?")))</h1><p>\(escape(L10n.text("System measurements from the preceding 30 seconds and the \(seconds(impact.elapsed)) seconds after the request.")))</p></div>
+        <section class="identity"><div><span class="label">\(escape(status == .exitObserved ? L10n.text("Terminated process") : L10n.text("Targeted process")))</span><h2>\(escape(intent.processName))</h2><p class="mono">PID \(intent.pid) <span class="muted">· \(escape(L10n.text("Identity"))) \(escape(intent.processID))</span></p></div><div><span class="label">\(escape(L10n.text("Affected application")))</span><h2>\(escape(intent.applicationName))</h2><p>\(escape(L10n.text("\(intent.applicationMemberCount) processes at request time · only the selected PID was targeted.")))</p></div></section>
         <div class="outcome \(outcome.2)"><strong>\(escape(outcome.0))</strong><p>\(escape(outcome.1))</p></div>
-        <dl class="metadata"><div><dt>Kapatma isteği</dt><dd>\(escape(date(impact.startedOn)))</dd></div><div><dt>Dışa aktarıldığı an</dt><dd>\(escape(date(exportedAt)))</dd></div><div><dt>Örnek sayısı</dt><dd>\(sampleCounts)</dd></div></dl>
-        \(complete ? "" : "<p class=\"partial-note\"><strong>Dışa aktarıldığı andaki durum.</strong> Bu dosya kendiliğinden güncellenmez. 60 saniye dolduğunda yeni rapor alabilirsin.</p>")
-        <section class="comparison"><div class="section-title"><h2>Önce / sonra</h2><span>Süreç değil, sistem toplamı</span></div><div class="table-scroll"><table><thead><tr><th>Kaynak</th><th>Önce · son 30 sn</th><th>Sonra · ilk \(seconds(impact.elapsed)) sn</th><th>Değişim</th></tr></thead><tbody>\(rows)</tbody></table></div></section>
-        <p class="mobile-hint">Tablo ve grafikleri yatay kaydırarak inceleyebilirsin.</p>
-        <div class="legend"><span><i class="legend-line"></i> Gözlenen değer</span><span><i class="legend-request"></i> Kapatma isteği</span><span><i class="legend-missing"></i> Ölçüm yok</span><span><i class="legend-future"></i> Henüz gözlenmedi</span></div>
+        <dl class="metadata"><div><dt>\(escape(L10n.text("Termination request")))</dt><dd>\(escape(date(impact.startedOn)))</dd></div><div><dt>\(escape(L10n.text("Exported at")))</dt><dd>\(escape(date(exportedAt)))</dd></div><div><dt>\(escape(L10n.text("Sample count")))</dt><dd>\(escape(sampleCounts))</dd></div></dl>
+        \(complete ? "" : "<p class=\"partial-note\"><strong>\(escape(L10n.text("State at export time.")))</strong> \(escape(L10n.text("This file does not update automatically. Export a new report after 60 seconds.")))</p>")
+        <section class="comparison"><div class="section-title"><h2>\(escape(L10n.text("Before / after")))</h2><span>\(escape(L10n.text("System totals, not process totals")))</span></div><div class="table-scroll"><table><thead><tr><th>\(escape(L10n.text("Resource")))</th><th>\(escape(L10n.text("Before · last 30 s")))</th><th>\(escape(L10n.text("After · first \(seconds(impact.elapsed)) s")))</th><th>\(escape(L10n.text("Change")))</th></tr></thead><tbody>\(rows)</tbody></table></div></section>
+        <p class="mobile-hint">\(escape(L10n.text("Scroll horizontally to inspect the table and charts.")))</p>
+        <div class="legend"><span><i class="legend-line"></i> \(escape(L10n.text("Observed value")))</span><span><i class="legend-request"></i> \(escape(L10n.text("Termination request")))</span><span><i class="legend-missing"></i> \(escape(L10n.text("No measurement")))</span><span><i class="legend-future"></i> \(escape(L10n.text("Not yet observed")))</span></div>
         \(graphs)
-        <section class="interpretation"><h2>Bu rapor nasıl okunmalı?</h2><p>Gözlenen değişim, tek başına neden kanıtı değildir. Aynı anda çalışan diğer işler de CPU, bellek baskısı ve swap değerlerini değiştirebilir.</p><p>CPU ve swap yazımı geçerli ölçüm aralıklarının süre ağırlıklı ortalamasıdır. Eksik süreler ortalamaya sıfır olarak katılmaz. Bellek baskısı ve swap miktarı, her pencerenin sonundaki güncel ölçümü gösterir; 5 saniyeden eski değerler kullanılmaz.</p><p>Swap miktarındaki azalma, kapanan sürecin kullandığı swap veya geri kazanılan RAM değildir. Swap hemen düşmeyebilir. Grafiklerin zaman ekseni ortaktır; miktar ve yazım ölçekleri ayrı ayrı belirtilmiştir.</p></section>
-        <section class="context"><div><h3>İstek anındaki öneri</h3><ul>\(reasons)</ul></div><div><h3>Onay öncesi gösterilen etki</h3><ul>\(effects)</ul></div></section>
-        <footer><span>TAWL · Yerel ölçüm raporu</span><span>Tek dosya · Çevrimdışı açılır · Tarayıcıdan yazdırılabilir</span></footer>
+        <section class="interpretation"><h2>\(escape(L10n.text("How to read this report")))</h2><p>\(escape(L10n.text("An observed change alone does not prove causation. Other concurrent tasks can also change CPU, memory pressure, and swap usage.")))</p><p>\(escape(L10n.text("CPU and swap writes are time-weighted averages of valid measurement intervals. Missing intervals are not counted as zero. Memory pressure and swap used show the latest measurement at each window end; values older than 5 seconds are excluded.")))</p><p>\(escape(L10n.text("A decrease in swap used is neither the terminated process's swap usage nor recovered RAM. Swap may not decrease immediately. Charts share a time axis; amount and write-rate scales are stated separately.")))</p></section>
+        <section class="context"><div><h3>\(escape(L10n.text("Recommendation at request time")))</h3><ul>\(reasons)</ul></div><div><h3>\(escape(L10n.text("Impact shown before confirmation")))</h3><ul>\(effects)</ul></div></section>
+        <footer><span>TAWL · \(escape(L10n.text("Local measurement report")))</span><span>\(escape(L10n.text("Single file · Works offline · Printable from your browser")))</span></footer>
         </main></body></html>
         """
     }
@@ -90,24 +90,24 @@ public enum ClosureImpactExporter {
 
     private static func metrics(_ impact: ClosureImpact) -> [Metric] {
         let s = impact.summary
-        func coverage(_ value: Double, _ total: Double) -> String { "Geçerli süre: \(seconds(value)) / \(seconds(total)) sn" }
-        let latest = "Pencere sonundaki güncel ölçüm"
+        func coverage(_ value: Double, _ total: Double) -> String { L10n.text("Valid duration: \(seconds(value)) / \(seconds(total)) s") }
+        let latest = L10n.text("Latest measurement at the end of the window")
         return [
-            Metric(title: "Sistem CPU", statistic: "Süre ağırlıklı ortalama", before: percent(s.before.cpu.value), after: percent(s.after.cpu.value),
-                   delta: s.cpuDeltaPercentagePoints.map { signed($0, decimals: 1) + " puan" } ?? "Hesaplanamadı",
+            Metric(title: L10n.text("System CPU"), statistic: L10n.text("Time-weighted average"), before: percent(s.before.cpu.value), after: percent(s.after.cpu.value),
+                   delta: s.cpuDeltaPercentagePoints.map { signed($0, decimals: 1) + L10n.text(" pp") } ?? L10n.text("Unavailable"),
                    beforeDetail: coverage(s.before.cpu.coverageSeconds, 30), afterDetail: coverage(s.after.cpu.coverageSeconds, impact.elapsed),
-                   note: "Sabit ölçek: 0–100%. Fark yüzde puandır; göreli yüzde değişimi değildir.", color: "#0879a6", kind: .cpu),
-            Metric(title: "Bellek baskısı", statistic: "Kategorik durum · son ölçüm", before: pressure(s.before.pressure), after: pressure(s.after.pressure),
-                   delta: s.before.pressure == .unknown || s.after.pressure == .unknown ? "Hesaplanamadı" : "\(pressure(s.before.pressure)) → \(pressure(s.after.pressure))",
+                   note: L10n.text("Fixed scale: 0–100%. The difference is in percentage points, not relative percentage change."), color: "#0879a6", kind: .cpu),
+            Metric(title: L10n.text("Memory pressure"), statistic: L10n.text("Categorical state · latest measurement"), before: pressure(s.before.pressure), after: pressure(s.after.pressure),
+                   delta: s.before.pressure == .unknown || s.after.pressure == .unknown ? L10n.text("Unavailable") : "\(pressure(s.before.pressure)) → \(pressure(s.after.pressure))",
                    beforeDetail: latest, afterDetail: latest,
-                   note: "Normal, uyarı ve kritik ayrı durumlardır; sayısal ortalama alınmaz. Yeşil: normal · sarı: uyarı · kırmızı: kritik.", color: "#946100", kind: .pressure),
-            Metric(title: "Swap miktarı", statistic: "Diskte kullanılan swap · son ölçüm", before: bytes(s.before.swapUsedBytes.map { Double($0) }), after: bytes(s.after.swapUsedBytes.map { Double($0) }),
-                   delta: s.swapUsedDeltaBytes.map { signedBytes(Double($0)) } ?? "Hesaplanamadı", beforeDetail: latest, afterDetail: latest,
-                   note: "Yakınlaştırılmış miktar ölçeği; önce ve sonra aynı ölçek kullanılır. Değişim, serbest kalan RAM miktarı değildir.", color: "#7a55b4", kind: .stock),
-            Metric(title: "Swap yazımı", statistic: "RAM'den diske · süre ağırlıklı ortalama", before: rate(s.before.swapOut.value), after: rate(s.after.swapOut.value),
-                   delta: s.swapOutDeltaBytesPerSecond.map { signedBytes($0) + "/s" } ?? "Hesaplanamadı",
+                   note: L10n.text("Normal, warning, and critical are distinct states; no numeric average is calculated. Green: normal · yellow: warning · red: critical."), color: "#946100", kind: .pressure),
+            Metric(title: L10n.text("Swap used"), statistic: L10n.text("Swap used on disk · latest measurement"), before: bytes(s.before.swapUsedBytes.map { Double($0) }), after: bytes(s.after.swapUsedBytes.map { Double($0) }),
+                   delta: s.swapUsedDeltaBytes.map { signedBytes(Double($0)) } ?? L10n.text("Unavailable"), beforeDetail: latest, afterDetail: latest,
+                   note: L10n.text("Zoomed amount scale, shared by before and after. The change is not the amount of RAM recovered."), color: "#7a55b4", kind: .stock),
+            Metric(title: L10n.text("Swap writes"), statistic: L10n.text("RAM to disk · time-weighted average"), before: rate(s.before.swapOut.value), after: rate(s.after.swapOut.value),
+                   delta: s.swapOutDeltaBytesPerSecond.map { signedBytes($0) + "/s" } ?? L10n.text("Unavailable"),
                    beforeDetail: coverage(s.before.swapOut.coverageSeconds, 30), afterDetail: coverage(s.after.swapOut.coverageSeconds, impact.elapsed),
-                   note: "Yeni swap yazım hızı. Ölçülmüş 0 B/s, bu aralıkta yeni swap yazılmadığı anlamına gelir; boş veya taralı alan sıfır değildir.", color: "#b6681a", kind: .writes)
+                   note: L10n.text("New swap write rate. A measured 0 B/s means no new swap was written in this interval; blank or hatched areas are not zero."), color: "#b6681a", kind: .writes)
         ]
     }
 
@@ -156,7 +156,7 @@ public enum ClosureImpactExporter {
         func y(_ v: Double) -> Double { py + ph * (1 - min(1, max(0, (v - low) / (high - low)))) }
         func n(_ value: Double) -> String { String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), value) }
         var pieces: [String] = []
-        pieces.append("<svg viewBox=\"0 0 960 182\" role=\"img\" aria-labelledby=\"chart-title-\(index) chart-desc-\(index)\" xmlns=\"http://www.w3.org/2000/svg\"><title id=\"chart-title-\(index)\">\(escape(metric.title)) · önce ve sonra</title><desc id=\"chart-desc-\(index)\">\(escape(metric.before)) → \(escape(metric.after)). −30 ile +60 saniye; kapatma isteği 0 noktasında. Taralı alan ölçüm eksikliğini gösterir.</desc>")
+        pieces.append("<svg viewBox=\"0 0 960 182\" role=\"img\" aria-labelledby=\"chart-title-\(index) chart-desc-\(index)\" xmlns=\"http://www.w3.org/2000/svg\"><title id=\"chart-title-\(index)\">\(escape(metric.title)) · \(escape(L10n.text("before and after")))</title><desc id=\"chart-desc-\(index)\">\(escape(metric.before)) → \(escape(metric.after)). \(escape(L10n.text("−30 to +60 seconds; termination request at 0. Hatched areas indicate missing measurements.")))</desc>")
         pieces.append("<defs><pattern id=\"missing-\(index)\" patternUnits=\"userSpaceOnUse\" width=\"7\" height=\"7\"><path d=\"M0 7L7 0\" stroke=\"#d9dfe5\" stroke-width=\"1\"/></pattern></defs>")
         pieces.append("<rect x=\"\(n(px))\" y=\"\(n(py))\" width=\"\(n(pw))\" height=\"\(n(ph))\" fill=\"#fafbfd\"/>")
         if impact.elapsed < 60 {
@@ -172,7 +172,7 @@ public enum ClosureImpactExporter {
         for value in gridValues {
             let label: String
             switch metric.kind {
-            case .pressure: label = value == 1 ? "Normal" : value == 2 ? "Uyarı" : "Kritik"
+            case .pressure: label = value == 1 ? L10n.text("Normal") : value == 2 ? L10n.text("Warning") : L10n.text("Critical")
             case .cpu: label = "\(Int(value))%"
             case .stock: label = data.isEmpty ? "—" : bytes(value)
             case .writes: label = data.isEmpty ? "—" : rate(value)
@@ -184,10 +184,10 @@ public enum ClosureImpactExporter {
             let a = x(segment.start), b = x(segment.end), top = y(segment.value)
             pieces.append("<rect data-observed=\"\(n(segment.value))\" x=\"\(n(a))\" y=\"\(n(top))\" width=\"\(n(max(0, b-a)))\" height=\"\(n(max(0, py + ph - top)))\" fill=\"\(color)\" opacity=\"0.14\"/><path d=\"M\(n(a)) \(n(top))H\(n(b))\" stroke=\"\(color)\" stroke-width=\"2.5\" fill=\"none\"/>")
         }
-        pieces.append("<path class=\"request-line\" d=\"M\(n(x(0))) 21V151\" stroke=\"#24364c\" stroke-width=\"1.5\" stroke-dasharray=\"4 3\"/><text x=\"\(n(x(0) + 8))\" y=\"15\" class=\"request-label\">0 · KAPATMA İSTEĞİ</text>")
+        pieces.append("<path class=\"request-line\" d=\"M\(n(x(0))) 21V151\" stroke=\"#24364c\" stroke-width=\"1.5\" stroke-dasharray=\"4 3\"/><text x=\"\(n(x(0) + 8))\" y=\"15\" class=\"request-label\">0 · \(escape(L10n.text("TERMINATION REQUEST")))</text>")
         for tick in [-30.0, 0, 30, 60] {
-            let label = tick == 0 ? "0 sn" : "\(tick > 0 ? "+" : "−")\(Int(abs(tick))) sn"
-            pieces.append("<text x=\"\(n(x(tick)))\" y=\"169\" text-anchor=\"\(tick == -30 ? "start" : tick == 60 ? "end" : "middle")\" class=\"axis\">\(label)</text>")
+            let label = tick == 0 ? L10n.text("0 s") : L10n.text("\(tick > 0 ? "+" : "−")\(Int(abs(tick))) s")
+            pieces.append("<text x=\"\(n(x(tick)))\" y=\"169\" text-anchor=\"\(tick == -30 ? "start" : tick == 60 ? "end" : "middle")\" class=\"axis\">\(escape(label))</text>")
         }
         pieces.append("</svg>")
         return pieces.joined()
@@ -201,15 +201,15 @@ public enum ClosureImpactExporter {
 
     private static func outcome(_ status: ProcessClosureStatus, complete: Bool) -> (String, String, String) {
         switch status {
-        case .exitObserved: return ("Süreç çıkışı doğrulandı", "Hedeflenen süreç kimliğinin sonlandığı işletim sisteminden doğrulandı. Sistem kaynaklarındaki fark aşağıda ayrı gösterilir.", "confirmed")
-        case .identityChanged: return ("Süreç kimliği değişti", "Aynı PID artık başka bir süreç kimliğine ait. Eski sürecin kapatma isteğiyle sonlandığı doğrulanamadı.", "uncertain")
-        case .stillRunning: return ("Son kontrolde süreç hâlâ çalışıyordu", "Kapatma isteği kabul edildi; kapanma doğrulanmadı. Bu rapor zorla kapatma sonucu içermez.", "uncertain")
+        case .exitObserved: return (L10n.text("Process exit confirmed"), L10n.text("The operating system confirmed that the targeted process identity exited. System resource changes are shown separately below."), "confirmed")
+        case .identityChanged: return (L10n.text("Process identity changed"), L10n.text("The same PID now belongs to a different process identity. It could not be confirmed that the termination request ended the original process."), "uncertain")
+        case .stillRunning: return (L10n.text("Process still running at last check"), L10n.text("The termination request was accepted; exit was not confirmed. This report does not contain a force-quit result."), "uncertain")
         case .waitingForExit, .submitting:
-            return ("Kapanma henüz doğrulanmadı", complete ? "Gözlem penceresi bitti. Kapatma isteğinin kabul edilmesi, sürecin sonlandığını tek başına kanıtlamaz." : "Kapatma isteği işlendi; dışa aktarma anında süreç çıkışı doğrulanmamıştı.", "uncertain")
-        case .unverified: return ("Süreç sonucu doğrulanamadı", "Son kontrolde hedef kimliğin durumu okunamadı veya gözlem kesildi. Kaynak grafikleri kapanma kanıtı değildir.", "uncertain")
-        case .rejected(let reason): return ("Kapatma isteği reddedildi", reason, "uncertain")
-        case .cancelled: return ("Kapatma iptal edildi", "Kapatma isteği gönderilmedi.", "uncertain")
-        case .preview: return ("Kapatma henüz onaylanmadı", "Bu durum bir süreç kapanmasını doğrulamaz.", "uncertain")
+            return (L10n.text("Exit not yet confirmed"), complete ? L10n.text("The observation window ended. Acceptance of a termination request alone does not prove that the process exited.") : L10n.text("The termination request was processed; process exit had not been confirmed at export time."), "uncertain")
+        case .unverified: return (L10n.text("Process outcome unverified"), L10n.text("The target identity could not be read at the last check, or observation was interrupted. Resource charts do not prove process exit."), "uncertain")
+        case .rejected(let reason): return (L10n.text("Termination request rejected"), reason, "uncertain")
+        case .cancelled: return (L10n.text("Termination cancelled"), L10n.text("No termination request was sent."), "uncertain")
+        case .preview: return (L10n.text("Termination not yet confirmed by user"), L10n.text("This state does not confirm a process exit."), "uncertain")
         }
     }
     private static func escape(_ value: String) -> String {
@@ -218,7 +218,7 @@ public enum ClosureImpactExporter {
             .replacingOccurrences(of: "'", with: "&#39;")
     }
     private static func date(_ value: Date) -> String {
-        guard value.timeIntervalSince1970.isFinite else { return "Bilinmiyor" }
+        guard value.timeIntervalSince1970.isFinite else { return L10n.text("Unknown") }
         let formatter = ISO8601DateFormatter(); formatter.timeZone = TimeZone.current
         return formatter.string(from: value)
     }
@@ -226,17 +226,17 @@ public enum ClosureImpactExporter {
         String(format: value.rounded() == value ? "%.0f" : "%.1f", locale: Locale(identifier: "en_US_POSIX"), value)
     }
     private static func percent(_ value: Double?) -> String {
-        value.map { String(format: "%.1f%%", locale: Locale(identifier: "en_US_POSIX"), $0) } ?? "Ölçüm yok"
+        value.map { String(format: "%.1f%%", locale: Locale(identifier: "en_US_POSIX"), $0) } ?? L10n.text("No measurement")
     }
     private static func pressure(_ value: Pressure) -> String {
-        switch value { case .normal: return "Normal"; case .warning: return "Uyarı"; case .critical: return "Kritik"; case .unknown: return "Ölçüm yok" }
+        switch value { case .normal: return L10n.text("Normal"); case .warning: return L10n.text("Warning"); case .critical: return L10n.text("Critical"); case .unknown: return L10n.text("No measurement") }
     }
     private static func signed(_ value: Double, decimals: Int) -> String {
         let sign = value > 0 ? "+" : value < 0 ? "−" : ""
         return sign + String(format: "%.*f", locale: Locale(identifier: "en_US_POSIX"), decimals, abs(value))
     }
     private static func bytes(_ value: Double?) -> String {
-        guard let value, value.isFinite, value >= 0 else { return "Ölçüm yok" }
+        guard let value, value.isFinite, value >= 0 else { return L10n.text("No measurement") }
         let units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"]
         var size = value, index = 0
         while size >= 1024 && index < units.count - 1 { size /= 1024; index += 1 }
@@ -245,7 +245,7 @@ public enum ClosureImpactExporter {
     private static func signedBytes(_ value: Double) -> String {
         (value > 0 ? "+" : value < 0 ? "−" : "") + bytes(abs(value))
     }
-    private static func rate(_ value: Double?) -> String { value.map { bytes($0) + "/s" } ?? "Ölçüm yok" }
+    private static func rate(_ value: Double?) -> String { value.map { bytes($0) + "/s" } ?? L10n.text("No measurement") }
 
     private static let stylesheet = """
     :root{color-scheme:light;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#203047;background:#edf1f5;font-synthesis:none}*{box-sizing:border-box}body{margin:0;padding:40px 20px}main{max-width:1080px;margin:auto;padding:40px 48px;background:#fff;border-top:5px solid #0879a6;box-shadow:0 8px 50px #1933490c}header,.section-title,.chart-heading,footer{display:flex;justify-content:space-between;align-items:center;gap:20px}.brand{font-size:17px;font-weight:800;letter-spacing:.1em;color:#0879a6}.brand span{font-size:12px;letter-spacing:.08em;color:#5b697a;margin-left:10px}.phase{font-size:12px;font-weight:700;padding:8px 11px;border:1px solid #d9e5eb;border-radius:4px;background:#eef6f8}.phase.partial{color:#885e10;background:#fff8e8;border-color:#ead6a7}.intro{margin:40px 0 30px}.eyebrow,.label{font-size:12px;letter-spacing:.11em;font-weight:700;color:#5b697a}.intro h1{font-size:42px;line-height:1.1;letter-spacing:-.04em;margin:10px 0 16px;font-weight:750}.intro p:last-child{font-size:15px;color:#5f6d7f}.identity{display:grid;grid-template-columns:1fr 1fr;gap:30px;background:#f5f8fa;border-top:1px solid #dce5eb;border-bottom:1px solid #dce5eb;padding:22px 24px}.identity h2{font-size:19px;margin:8px 0;overflow-wrap:anywhere}.identity p{font-size:14px;line-height:1.6;margin:0;color:#58677a;overflow-wrap:anywhere}.mono{font-family:ui-monospace,Menlo,monospace}.muted{color:#5f6f82}.outcome{margin-top:16px;padding:14px 18px;border-left:3px solid #248360;background:#f0f8f4}.outcome.uncertain{border-color:#ba8424;background:#fff9ed}.outcome strong{font-size:14px}.outcome p{margin:5px 0 0;font-size:14px;line-height:1.6;color:#58677a;overflow-wrap:anywhere}.metadata{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin:22px 0 30px}.metadata dt{font-size:12px;color:#5c6e82;margin-bottom:5px}.metadata dd{margin:0;font-size:13px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.partial-note{font-size:14px;line-height:1.6;padding:14px 18px;background:#fff9ed;border:1px solid #efddb7;margin:0 0 25px}.section-title{margin-bottom:12px}.section-title h2{font-size:20px;margin:0}.section-title span{font-size:12px;color:#5c6e82}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}thead{background:#213a50;color:#fff;text-align:right}th,td{padding:14px 14px;border-bottom:1px solid #e2e8ee;text-align:right;vertical-align:top}th:first-child{text-align:left;width:30%}thead th{font-size:12px;font-weight:600;white-space:nowrap}tbody th{font-size:14px;font-weight:650}tbody td{font-weight:650;white-space:nowrap}small{display:block;font-size:12px;line-height:1.5;margin-top:5px;font-weight:400;color:#5c6e82}td.delta{color:#335e80}tbody tr:last-child td,tbody tr:last-child th{border-bottom:2px solid #d7e0e8}.mobile-hint{display:none}.plot-scroll{overflow-x:auto}.legend{display:flex;gap:22px;flex-wrap:wrap;font-size:12px;color:#5c6e82;margin:26px 0 4px}.legend span{display:flex;align-items:center;gap:7px}.legend i{display:inline-block;width:18px;height:9px}.legend-line{background:#0879a6;height:2px!important}.legend-request{border-left:2px dashed #24364c;width:2px!important;margin:0 8px}.legend-missing{background:repeating-linear-gradient(-45deg,#fff,#fff 3px,#cfd7df 3px,#cfd7df 4px);border:1px solid #dde3e9}.legend-future{background:#edf0f3;border:1px solid #e1e5eb}.chart{padding:25px 0 17px;border-bottom:1px solid #e2e8ee;break-inside:avoid}.chart h2{font-size:19px;margin:5px 0}.chart .eyebrow{font-size:12px}.chart-change{font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;text-align:right}.chart-change span{padding:0 7px;font-weight:400;color:#97a4b3}.chart-change small{font-size:12px;color:#59758d}.chart svg{display:block;width:100%;height:auto;margin-top:12px}.axis{font-size:12px;fill:#576b80;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}.request-label{font-size:12px;fill:#24364c;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.07em;font-weight:700}.chart-note{margin:2px 0 0 9%;font-size:14px;line-height:1.6;color:#586c81}.interpretation{margin:30px 0 25px;padding-left:20px;border-left:3px solid #dce5ec}.interpretation h2{font-size:16px;margin:0 0 9px}.interpretation p{font-size:14px;line-height:1.7;color:#5e6f80;margin:8px 0}.context{display:grid;grid-template-columns:1fr 1.4fr;gap:34px;border-top:1px solid #e2e8ee;padding-top:18px}.context h3{font-size:14px;margin:0 0 8px}.context ul{padding-left:17px;margin:0}.context li{font-size:14px;line-height:1.65;color:#5c6e82;margin-bottom:5px;overflow-wrap:anywhere}footer{border-top:1px solid #dce5ec;margin-top:28px;padding-top:18px;font-size:12px;color:#5c6e82}@media(max-width:700px){.mobile-hint{display:block;font-size:12px;color:#5c6e82;margin-top:20px}.plot-scroll svg{min-width:760px}body{padding:0}main{padding:24px 18px}.intro{margin-top:28px}.intro h1{font-size:34px}.brand span{display:none}header{gap:10px}.phase{font-size:12px}.identity,.metadata,.context{grid-template-columns:1fr;gap:18px}.identity{padding:18px}.chart-heading{gap:10px}.chart h2{font-size:16px}.chart-change{font-size:14px}.section-title span{max-width:100px;text-align:right}.chart-note{margin-left:0}.legend{gap:14px}table{min-width:620px}footer{align-items:flex-start;line-height:1.6}}@page{size:A4;margin:14mm}@media print{html{background:#fff}.mobile-hint{display:none}.plot-scroll{overflow:visible}.plot-scroll svg{min-width:0}body{padding:0;background:#fff}main{max-width:none;padding:0;border-top:3px solid #0879a6;box-shadow:none}.intro{margin:24px 0}.intro h1{font-size:32px}.identity,.outcome,.metadata,.comparison,.context,.interpretation{break-inside:avoid}.chart{padding:17px 0 10px}.chart svg{max-height:150px}.chart-note{margin-left:0}.table-scroll{overflow:visible}table{min-width:0}.legend{margin-top:20px}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}

@@ -5,6 +5,7 @@ Compile the harness after the current debug build (see README).
 """
 import os, pty, fcntl, termios, struct, subprocess, select, time, signal, json, re, tempfile
 from pathlib import Path
+from language_support import LANGUAGE, label
 root=Path(__file__).resolve().parents[2]
 fallback=os.environ.get('TAWL_TEST_KEYBOARD_FALLBACK')=='1'
 base=root/('work/native-closure-fallback-pty' if fallback else 'work/native-closure-pty');base.mkdir(parents=True,exist_ok=True)
@@ -45,26 +46,26 @@ try:
     read(.8)
     key(b'/');key(fixture['app'].encode());key(b'\r')
     key(b'x')
-    assert 'SÜREÇ KAPATMA' in screen() and 'MANUEL' in screen(),screen()
+    assert label('PROCESS TERMINATION') in screen() and label('MANUAL') in screen(),screen()
     assert not any(e['event'] in ('prepare','sent') for e in events())
     key(b'i' if fallback else b'\r')
-    assert 'ONAY BEKLİYOR' in screen() and 'Manuel seçim' in screen(),screen()
-    assert '› Vazgeç' in screen() and fixture['app'] in screen()
+    assert label('AWAITING CONFIRMATION') in screen() and label('Manual selection · no automatic termination recommendation.').split(" · ")[0] in screen(),screen()
+    assert label('› Cancel') in screen() and fixture['app'] in screen()
     assert not any(e['event']=='sent' for e in events())
     key(b'\x1b[C');key(b' ' if fallback else b'\r')
     read(.8)
-    assert 'SON KAPATMA' in screen(),screen()
-    assert 'ÇIKIŞI DOĞRULANDI' in screen(),screen()
+    assert label(' TAWL / LAST TERMINATION · SYSTEM COMPARISON') in screen(),screen()
+    assert label('SELECTED PROCESS EXIT VERIFIED') in screen(),screen()
     assert f'PID {pid}' in screen()
     read(1.0)
-    assert 'SİSTEM CPU' in screen() and 'BELLEK BASKISI' in screen() and 'SWAP STOKU' in screen()
+    assert label('SYSTEM CPU') in screen() and label('MEMORY PRESSURE') in screen() and label('SWAP STOCK') in screen()
     key(b'd')
-    assert 'HTML RAPOR KAYDEDİLDİ' in screen(),screen()
-    files=sorted((out/'raporlar').glob(f'*-pid{pid}-*.html'))
-    if not files:files=[p for p in (out/'raporlar').glob('*.html') if f'PID {pid}' in p.read_text()]
+    assert label('HTML REPORT SAVED') in screen(),screen()
+    files=sorted((out/'reports').glob(f'*-pid{pid}-*.html'))
+    if not files:files=[p for p in (out/'reports').glob('*.html') if f'PID {pid}' in p.read_text()]
     assert len(files)==1,files
     html=files[0].read_text();assert html.count('<svg')==4 and fixture['app'] in html
-    assert 'Süreç çıkışı doğrulandı' in html,html[:1000]
+    assert label('Process exit confirmed') in html,html[:1000]
     key(b'\x1b');key(b'q');proc.wait(timeout=5)
     assert proc.returncode==0
     assert termios.tcgetattr(slave)==before

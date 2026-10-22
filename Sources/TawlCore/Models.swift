@@ -132,7 +132,7 @@ public struct Finding: Codable {
 public struct EventMarker: Codable {
     public var timestamp: Date
     public var label: String
-    public init(timestamp: Date = Date(), label: String = "Yavaşlama işareti") {
+    public init(timestamp: Date = Date(), label: String = L10n.text("Slowdown marker")) {
         self.timestamp = timestamp; self.label = label
     }
 }

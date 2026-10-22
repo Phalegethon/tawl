@@ -25,7 +25,7 @@ final class RecordingTests: XCTestCase {
             applicationName: "Worker", projectID: nil, projectName: nil, projectEvidence: nil,
             cpuCores: nil, footprintBytes: nil, memoryDeltaBytes: nil,
             diskReadBytesPerSecond: nil, diskWriteBytesPerSecond: nil)]
-        value.limitations = ["Ölçüm izni yok"]
+        value.limitations = ["Measurement permission denied"]
         return value
     }
 
@@ -36,8 +36,8 @@ final class RecordingTests: XCTestCase {
     private var legacyRecording: String {
         """
         {"type":"header","format":"nabiz","version":1}
-        {"type":"snapshot","snapshot":{"timestamp":10,"monotonicTime":10,"intervalSeconds":2,"cpuPercent":25,"logicalCPUCount":8,"memoryTotalBytes":16000000000,"pressure":"warning","compressedBytes":1048576,"swapUsedBytes":2097152,"swapOutBytesPerSecond":4096,"totalProcessCount":2,"unreadableProcessCount":1,"processes":[{"id":"42:10","pid":42,"name":"worker","applicationID":"app","applicationName":"Worker","footprintBytes":524288,"memoryDeltaBytes":1024}],"limitations":["Ölçüm izni yok"]}}
-        {"type":"marker","marker":{"timestamp":11,"label":"Yavaşladı"}}
+        {"type":"snapshot","snapshot":{"timestamp":10,"monotonicTime":10,"intervalSeconds":2,"cpuPercent":25,"logicalCPUCount":8,"memoryTotalBytes":16000000000,"pressure":"warning","compressedBytes":1048576,"swapUsedBytes":2097152,"swapOutBytesPerSecond":4096,"totalProcessCount":2,"unreadableProcessCount":1,"processes":[{"id":"42:10","pid":42,"name":"worker","applicationID":"app","applicationName":"Worker","footprintBytes":524288,"memoryDeltaBytes":1024}],"limitations":["Measurement permission denied"]}}
+        {"type":"marker","marker":{"timestamp":11,"label":"Slowdown observed"}}
         {"type":"snapshot","snapshot":{"timestamp":12,"monotonicTime":12,"intervalSeconds":2,"cpuPercent":20,"logicalCPUCount":8,"memoryTotalBytes":16000000000,"pressure":"normal","swapUsedBytes":2097152,"swapOutBytesPerSecond":0,"totalProcessCount":2,"unreadableProcessCount":1,"processes":[{"id":"42:10","pid":42,"name":"worker","applicationID":"app","applicationName":"Worker","cpuCores":0.5,"footprintBytes":524288,"memoryDeltaBytes":0}],"limitations":[]}}
         """ + "\n"
     }
@@ -66,12 +66,12 @@ final class RecordingTests: XCTestCase {
         XCTAssertEqual(first.processes.first?.id, "42:10")
         XCTAssertEqual(first.processes.first?.applicationName, "Worker")
         XCTAssertEqual(first.processes.first?.footprintBytes, 524288)
-        XCTAssertEqual(first.limitations, ["Ölçüm izni yok"])
+        XCTAssertEqual(first.limitations, ["Measurement permission denied"])
         XCTAssertNil(first.cpuCores)
         XCTAssertNil(first.gpus)
         XCTAssertNil(first.processes.first?.cpuCores)
         XCTAssertNil(first.processes.first?.canReviewClosure)
-        XCTAssertEqual(current.markers.map(\.label), ["Yavaşladı"])
+        XCTAssertEqual(current.markers.map(\.label), ["Slowdown observed"])
         XCTAssertEqual(current.markers.first?.timestamp.timeIntervalSinceReferenceDate, 11)
         XCTAssertTrue(legacy.warnings.isEmpty)
         XCTAssertTrue(current.warnings.isEmpty)
@@ -90,7 +90,7 @@ final class RecordingTests: XCTestCase {
     func testRoundTripPreservesSamplesMarkersAndUnavailableMetrics() throws {
         let writer = try RecordingWriter(url: file)
         try writer.append(sample(10))
-        try writer.appendMarker(EventMarker(timestamp: Date(timeIntervalSince1970: 11), label: "Yavaşladı"))
+        try writer.appendMarker(EventMarker(timestamp: Date(timeIntervalSince1970: 11), label: "Slowdown observed"))
         try writer.append(sample(12))
         try writer.close()
         let recording = try RecordingReader.read(url: file)
@@ -100,11 +100,29 @@ final class RecordingTests: XCTestCase {
         XCTAssertEqual(first.timestamp.timeIntervalSince1970, 10)
         XCTAssertNil(first.processes.first?.cpuCores)
         XCTAssertNil(first.processes.first?.footprintBytes)
-        XCTAssertEqual(first.limitations, ["Ölçüm izni yok"])
-        XCTAssertEqual(recording.markers.map(\.label), ["Yavaşladı"])
+        XCTAssertEqual(first.limitations, ["Measurement permission denied"])
+        XCTAssertEqual(recording.markers.map(\.label), ["Slowdown observed"])
         XCTAssertTrue(recording.warnings.isEmpty)
         let permissions = try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? NSNumber
         XCTAssertEqual(permissions?.intValue, 0o600)
+    }
+
+    func testChangingLanguageDoesNotTranslateRecordedNamesLabelsOrEvidence() throws {
+        let label = try XCTUnwrap(TurkishCore.strings["Slowdown marker"])
+        let evidence = try XCTUnwrap(TurkishCore.strings["System CPU counters unavailable."])
+        try L10n.withLanguage(.turkish) {
+            var value = sample(10, name: "Memory pressure")
+            value.limitations = [evidence]
+            let writer = try RecordingWriter(url: file)
+            try writer.append(value)
+            try writer.appendMarker(EventMarker(timestamp: Date(timeIntervalSince1970: 11), label: label))
+            try writer.close()
+        }
+        let recording = try L10n.withLanguage(.english) { try RecordingReader.read(url: file) }
+        XCTAssertEqual(recording.snapshots.first?.processes.first?.name, "Memory pressure")
+        XCTAssertEqual(recording.snapshots.first?.limitations, [evidence])
+        XCTAssertEqual(recording.markers.first?.label, label)
+        XCTAssertEqual(recording.snapshots.first?.processes.first?.id, "42:10")
     }
 
     func testExistingFileIsNeverOverwritten() throws {

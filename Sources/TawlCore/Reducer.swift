@@ -15,7 +15,7 @@ public final class SnapshotReducer {
         // A long pause resets the baseline; never average a sleep interval into a healthy rate.
         let valid = elapsed.map { $0 > 0 && $0 <= 15 && $0.isFinite } ?? false
         if valid { s.intervalSeconds = elapsed }
-        else { s.limitations.append(previous == nil ? "İlk örnek: hızlar için ikinci ölçüm bekleniyor." : "Ölçüm aralığında boşluk var; hızlar yeniden başlatılıyor.") }
+        else { s.limitations.append(previous == nil ? L10n.text("First sample: waiting for a second measurement to calculate rates.") : L10n.text("Gap in the sampling interval; rates are restarting.")) }
         func rate(_ now: UInt64?, _ old: UInt64?) -> Double? {
             guard valid, let elapsed, let now, let old, now >= old else { return nil }
             return Double(now - old) / elapsed

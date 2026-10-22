@@ -39,13 +39,13 @@ final class ClosureSpy: ProcessClosureControlling {
     }
     func prepare(_ intent: ProcessClosureIntent) -> String? {
         write("prepare",intent)
-        if mode == "prepare-failure" { prepared=nil; return "Sentetik yerel hazırlık başarısız." }
+        if mode == "prepare-failure" { prepared=nil; return "Synthetic native preparation failed." }
         prepared=(intent.processID,intent.createdAt); return nil
     }
     func submit(_ intent: ProcessClosureIntent) -> ProcessClosureSubmission {
         write("submit",intent)
-        guard matches(intent) else { write("rejected",intent);return .rejected("Sentetik hazırlık artık bu hedefe bağlı değil.") }
-        if mode == "reject" {write("rejected",intent);return .rejected("Sentetik kontrolör isteği reddetti.")}
+        guard matches(intent) else { write("rejected",intent);return .rejected("Synthetic preparation is no longer bound to this target.") }
+        if mode == "reject" {write("rejected",intent);return .rejected("The synthetic controller rejected the request.")}
         write("sent",intent);return .sent
     }
     func observe(_ intent: ProcessClosureIntent) -> ProcessClosureObservation {
@@ -55,6 +55,8 @@ final class ClosureSpy: ProcessClosureControlling {
     }
     func clear() { prepared=nil;write("clear") }
 }
+
+L10n.configure(AppLanguage(rawValue: ProcessInfo.processInfo.environment["TAWL_LANG"] ?? "en") ?? .english)
 
 let args = CommandLine.arguments
 guard args.count == 3 else { fatalError("log path and scenario control path required") }

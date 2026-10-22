@@ -66,7 +66,7 @@ public final class Attributor {
         if let root = projectRoot(process.workingDirectory) {
             result.projectID = "project:" + identityHash(root)
             result.projectName = cleanText(URL(fileURLWithPath: root).lastPathComponent)
-            result.projectEvidence = "Çalışma dizini + proje işareti"
+            result.projectEvidence = L10n.text("Working directory + project marker")
         }
         return result
     }

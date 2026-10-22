@@ -54,11 +54,11 @@ final class ClosureImpactUITests: XCTestCase {
         controller.observation = .exited; s.observeClosure(using:controller,now:130)
         for (w,h) in [(80,24),(100,30),(143,68),(160,45)] {
             let f = TerminalRenderer.render(s,width:w,height:h), text=f.lines.joined(separator:"\n")
-            for label in ["SİSTEM CPU","BELLEK BASKISI","SWAP STOKU","SWAP YAZIMI","İSTEK","30 / 60 sn","25.0%","−50.0 puan"] {
+            for label in ["SYSTEM CPU","MEMORY PRESSURE","SWAP STOCK","SWAP WRITES","REQUEST","30 / 60 s","25.0%","−50.0 points"] {
                 XCTAssertTrue(text.contains(label),"\(w)x\(h) missing \(label)")
             }
-            XCTAssertTrue(text.contains("ÇIKIŞI DOĞRULANDI"))
-            XCTAssertTrue(text.contains("neden kanıtı değildir"))
+            XCTAssertTrue(text.contains("EXIT VERIFIED"))
+            XCTAssertTrue(text.contains("does not prove causation"))
             XCTAssertTrue(f.lines.allSatisfy{TerminalText.width($0)<=w})
             XCTAssertEqual(f.lines.count,h)
         }
@@ -68,7 +68,7 @@ final class ClosureImpactUITests: XCTestCase {
         XCTAssertFalse(empty.impactVisible); XCTAssertFalse(empty.notice.isEmpty)
         var (s,_) = submitted(); s.captureImpact(sample(102,after:true,missing:true),now:102)
         let text = TerminalRenderer.render(s,width:80,height:24).lines.joined()
-        XCTAssertTrue(text.contains("Bilinmiyor")); XCTAssertTrue(text.contains("—"))
+        XCTAssertTrue(text.contains("Unknown")); XCTAssertTrue(text.contains("—"))
         XCTAssertFalse(text.contains("0.0%"))
     }
     func testChartsDistinguishGapsFutureAndMeasuredZero() {
@@ -83,24 +83,24 @@ final class ClosureImpactUITests: XCTestCase {
     }
     func testLongApplicationCannotHideTargetOrRequestTime() {
         var s=TerminalState(); var long=sample(100)
-        for i in long.processes.indices {long.processes[i].applicationName=String(repeating:"Çok uzun uygulama adı ",count:20)}
+        for i in long.processes.indices {long.processes[i].applicationName=String(repeating:"Very long application name ",count:20)}
         s.accept(long); s.openDetails(); let controller=ClosureControllerSpy()
         s.beginClosure(using:controller,now:100); s.chooseClosure(.confirm)
         s.confirmClosure(using:controller,now:100)
         let text=TerminalRenderer.render(s,width:80,height:24).lines.joined()
-        XCTAssertTrue(text.contains("PID 42")); XCTAssertTrue(text.contains("İstek \(TerminalRenderer.time(s.closureImpact!.startedOn))"))
-        XCTAssertTrue(text.contains("Çok uzun uygulama"))
+        XCTAssertTrue(text.contains("PID 42")); XCTAssertTrue(text.contains("Request \(TerminalRenderer.time(s.closureImpact!.startedOn))"))
+        XCTAssertTrue(text.contains("Very long application"))
     }
     func testFrozenReportDoesNotClaimCurrentProcessState() {
         var (s,controller)=submitted()
         s.observeClosure(using:controller,now:112); s.advanceImpact(now:160)
         s.dismissClosure(using:controller); s.advanceImpact(now:300); s.openImpact()
         let text=TerminalRenderer.render(s,width:80,height:24).lines.joined()
-        XCTAssertTrue(text.contains("SON KONTROLDE ÇALIŞIYORDU"))
-        XCTAssertFalse(text.contains("HÂLÂ ÇALIŞIYOR"))
+        XCTAssertTrue(text.contains("RUNNING AT LAST CHECK"))
+        XCTAssertFalse(text.contains("STILL RUNNING"))
         var (unobserved,_)=submitted(); unobserved.advanceImpact(now:160)
         let unknown=TerminalRenderer.render(unobserved,width:80,height:24).lines.joined()
-        XCTAssertTrue(unknown.contains("ÇIKIŞI GÖZLENMEDİ")); XCTAssertFalse(unknown.contains("BEKLENİYOR"))
+        XCTAssertTrue(unknown.contains("EXIT NOT OBSERVED")); XCTAssertFalse(unknown.contains("WAITING"))
     }
     func testImpactCaptureWhenRequested() throws {
         guard let dir=ProcessInfo.processInfo.environment["TAWL_IMPACT_CAPTURE"] else { return }
@@ -139,7 +139,7 @@ final class ClosureImpactUITests: XCTestCase {
         flatController.observation = .exited; flat.observeClosure(using:flatController,now:160)
         try save(flat,143,45,"impact-stock-flat-143x45")
         var long=TerminalState(); var point=sample(100)
-        for i in point.processes.indices {point.processes[i].applicationName=String(repeating:"Çok uzun uygulama adı ",count:20)}
+        for i in point.processes.indices {point.processes[i].applicationName=String(repeating:"Very long application name ",count:20)}
         long.accept(point); long.openDetails(); let longController=ClosureControllerSpy()
         long.beginClosure(using:longController,now:100); long.chooseClosure(.confirm)
         long.confirmClosure(using:longController,now:100); long.advanceImpact(now:112)

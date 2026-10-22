@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 — 2026-10-22
+
+- English is now the default interface language. Turkish remains available through `--lang tr` or `TAWL_LANG=tr`; the command-line flag takes priority and OS locale does not select the language automatically.
+- Project documentation is now in English, with one detailed usage guide.
+- New chart reports use the `reports/` directory and English filenames. Existing reports remain untouched.
+
+Upgrade with `tawl update`, or `brew update` followed by `brew upgrade phalegethon/tawl/tawl` for a Homebrew-managed installation.
+
 ## 0.1.0
 
 Initial TAWL distribution for macOS 15 and later.
@@ -11,4 +19,4 @@ Initial TAWL distribution for macOS 15 and later.
 - Opt-in session recording and offline reports, including legacy `.nabiz` compatibility.
 - Standalone and Homebrew installation; version checks, background update notices and explicit update commands.
 
-The terminal interface currently uses Turkish labels. GPU core-level usage and per-process swap ownership are not measured. See release notes for each build's signing status.
+The initial 0.1.0 terminal interface used Turkish labels. GPU core-level usage and per-process swap ownership are not measured. See release notes for each build's signing status.

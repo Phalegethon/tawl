@@ -42,9 +42,9 @@ public func formatRate(_ value: Double?) -> String {
 }
 public func pressureLabel(_ pressure: Pressure) -> String {
     switch pressure {
-    case .normal: return "Normal"
-    case .warning: return "Baskı var"
-    case .critical: return "Kritik"
-    case .unknown: return "Ölçülemedi"
+    case .normal: return L10n.text("Normal")
+    case .warning: return L10n.text("Pressure")
+    case .critical: return L10n.text("Critical")
+    case .unknown: return L10n.text("Unavailable")
     }
 }

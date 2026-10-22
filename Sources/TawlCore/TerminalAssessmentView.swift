@@ -3,20 +3,20 @@ import Foundation
 extension TerminalRenderer {
     static func resourceSummary(_ p:ProcessSample,_ a:ProcessAssessment)->String {
         let label=signalLabel(a.signals)
-        if !label.isEmpty {return "KAYNAK UYARISI  "+label}
+        if !label.isEmpty {return L10n.text("RESOURCE ALERT  ")+label}
         guard let cpu=p.cpuCores,cpu.isFinite,cpu>=0,p.footprintBytes != nil,p.memoryDeltaBytes != nil else {
-            return "Eksik ölçüm · yüksek tüketim tam değerlendirilemiyor"
+            return L10n.text("Missing measurements · high usage cannot be fully assessed")
         }
-        return "Yüksek tüketim eşiği aşılmadı."
+        return L10n.text("High usage threshold not exceeded.")
     }
     static func quickAction(_ state:TerminalState,_ a:ProcessAssessment)->String {
-        if state.selectedProcessIsMissing {return "Güncel süreç yok; bu PID için işlem önerilmez."}
-        if state.frozen || state.historyVisible {return "Canlıya dönüp aynı süreci doğrula; bu geçmiş ölçümdür."}
-        if a.quietObservationState == .protected {return "Bağımlı işleri servis/VM uygulamasından incele."}
+        if state.selectedProcessIsMissing {return L10n.text("No current process; no action is recommended for this PID.")}
+        if state.frozen || state.historyVisible {return L10n.text("Return to live view and verify this process; this is historical data.")}
+        if a.quietObservationState == .protected {return L10n.text("Review dependent workloads in their service or VM application.")}
         if !a.recommendations.isEmpty {
-            return "Önce çalışmanı kaydet. x: etkilenen uygulama ve kapatma onayı."
+            return L10n.text("Save your work first. x: affected application and termination approval.")
         }
-        return "Kapatma önerisi yok; ölçüm ve gözlem süresini izle."
+        return L10n.text("No termination recommendation; monitor usage and observation time.")
     }
     static func section(_ c:inout TerminalCanvas,_ title:String,x:Int,y:Int,w:Int,ink:TerminalInk = .primary) {
         c.fillRow(y:y,from:x,to:x+w,fill:.panel)
@@ -29,7 +29,7 @@ extension TerminalRenderer {
         return y+lines.count
     }
     static func durationMeter(_ c:inout TerminalCanvas,title:String,seconds:Double?,target:Double,x:Int,y:Int,w:Int,ink:TerminalInk) {
-        let text=seconds.map{String(format:"%.0f / %.0f sn",min($0,target),target)} ?? "kanıt yok"
+        let text=seconds.map{String(format:L10n.text("%.0f / %.0f s"),min($0,target),target)} ?? L10n.text("no evidence")
         c.write(TerminalText.clipped(title,to:max(1,w-18)),x:x,y:y,ink:ink)
         c.write(right(text,min(w,18)),x:x+max(0,w-18),y:y,ink:.secondary)
         meter(&c,seconds.map{$0/target},x:x,y:y+1,width:w,ink:ink)
@@ -50,26 +50,26 @@ extension TerminalRenderer {
         let cpuPeak=max(1,cpu.compactMap{$0}.max() ?? 1),memPeak=max(1,mem.compactMap{$0}.max() ?? 1)
         let signals=resourceSignals(cpuCores:p.cpuCores,footprintBytes:p.footprintBytes,memoryDeltaBytes:p.memoryDeltaBytes)
         let cw=stacked ? w:(w-2)/2
-        miniResource(&c,title:"CPU",value:cores(p.cpuCores)+" çek.",series:cpu,x:x,y:y,w:cw,ink:resourceInk(signals,.cpu,normal:.cpu),scale:cpu.contains{$0 != nil} ? "0–\(cores(cpuPeak)) çek. · örnek":"Ölçüm yok",ceiling:cpuPeak,dense:dense)
+        miniResource(&c,title:"CPU",value:cores(p.cpuCores)+L10n.text(" cores"),series:cpu,x:x,y:y,w:cw,ink:resourceInk(signals,.cpu,normal:.cpu),scale:cpu.contains{$0 != nil} ? L10n.text("0–\(cores(cpuPeak)) cores · samples"):L10n.text("No measurements"),ceiling:cpuPeak,dense:dense)
         let chartHeight=dense ? 4:7
         let my=stacked ? y+chartHeight:y,mx=stacked ? x:x+cw+2,mw=stacked ? w:w-cw-2
-        let memoryScale=mem.contains{$0 != nil} && memPeak<Double(UInt64.max) ? "0–\(formatBytes(UInt64(memPeak))) · örnek":"Ölçüm yok"
-        miniResource(&c,title:"AYAK İZİ",value:formatBytes(p.footprintBytes)+"  Δ "+delta(p.memoryDeltaBytes),series:mem,x:mx,y:my,w:mw,ink:resourceInk(signals,.memory,normal:.memory),scale:memoryScale,ceiling:memPeak,dense:dense)
+        let memoryScale=mem.contains{$0 != nil} && memPeak<Double(UInt64.max) ? L10n.text("0–\(formatBytes(UInt64(memPeak))) · samples"):L10n.text("No measurements")
+        miniResource(&c,title:L10n.text("FOOTPRINT"),value:formatBytes(p.footprintBytes)+"  Δ "+delta(p.memoryDeltaBytes),series:mem,x:mx,y:my,w:mw,ink:resourceInk(signals,.memory,normal:.memory),scale:memoryScale,ceiling:memPeak,dense:dense)
         return my+chartHeight
     }
     static func observationSection(_ c:inout TerminalCanvas,_ p:ProcessSample,_ a:ProcessAssessment,x:Int,y:Int,w:Int,dense:Bool=false)->Int {
-        section(&c,"GÖZLEM SÜRESİ · puan değildir",x:x,y:y,w:w,ink:.cpu)
-        durationMeter(&c,title:"Sürekli CPU ≥1 çek.",seconds:a.highCPUSeconds,target:30,x:x,y:y+1,w:w,ink:.cpu)
-        durationMeter(&c,title:"Düşük etkinlik",seconds:a.quietSeconds,target:600,x:x,y:y+(dense ? 3:4),w:w,ink:a.quietObservationState == .qualified ? .warning:.good)
+        section(&c,L10n.text("OBSERVATION TIME · not a score"),x:x,y:y,w:w,ink:.cpu)
+        durationMeter(&c,title:L10n.text("Sustained CPU ≥1 core"),seconds:a.highCPUSeconds,target:30,x:x,y:y+1,w:w,ink:.cpu)
+        durationMeter(&c,title:L10n.text("Low activity"),seconds:a.quietSeconds,target:600,x:x,y:y+(dense ? 3:4),w:w,ink:a.quietObservationState == .qualified ? .warning:.good)
         var row=y+(dense ? 5:7)
         if dense {
-            row=paragraph(&c,a.recommendations.first?.title ?? "Öneri yok · gözlem sürüyor",x:x,y:row,w:w,ink:a.recommendations.isEmpty ? .secondary:.warning)+1
+            row=paragraph(&c,a.recommendations.first?.title ?? L10n.text("No recommendation · observing"),x:x,y:row,w:w,ink:a.recommendations.isEmpty ? .secondary:.warning)+1
         }
         let ageOK=p.ageSeconds.flatMap{$0.isFinite && $0>=0 ? $0>=7200:nil}
         let cpuOK=p.cpuCores.flatMap{$0.isFinite && $0>=0 ? $0<0.02:nil}
         let diskOK:Bool? = p.diskReadBytesPerSecond.flatMap{r in p.diskWriteBytesPerSecond.flatMap{r.isFinite && r>=0 && $0.isFinite && $0>=0 ? r<1024 && $0<1024:nil}}
         let memoryOK=p.footprintBytes.map{$0>=268_435_456}
-        let checks:[(String,Bool?)]=[("Yaş ≥2 sa",ageOK),("CPU <0.02",cpuOK),("Disk <1 KiB/sn",diskOK),("Ayak izi ≥256 MiB",memoryOK)]
+        let checks:[(String,Bool?)]=[(L10n.text("Age ≥2 h"),ageOK),("CPU <0.02",cpuOK),(L10n.text("Disk <1 KiB/s"),diskOK),(L10n.text("Footprint ≥256 MiB"),memoryOK)]
         let col=(w-2)/2
         for (i,check) in checks.enumerated() {
             let mark=check.1 == true ? "✓":check.1 == false ? "·":"?"
@@ -81,17 +81,17 @@ extension TerminalRenderer {
     }
     static func recommendationSection(_ c:inout TerminalCanvas,_ a:ProcessAssessment,x:Int,y:Int,w:Int)->Int {
         let count=a.recommendations.count
-        section(&c,count==0 ? "DEĞERLENDİRME · öneri yok":"DEĞERLENDİRME · \(count) bulgu",x:x,y:y,w:w,ink:count==0 ? .secondary:.warning)
+        section(&c,count==0 ? L10n.text("ASSESSMENT · no recommendation"):L10n.text("ASSESSMENT · \(count) findings"),x:x,y:y,w:w,ink:count==0 ? .secondary:.warning)
         var row=y+1
-        if count==0 {row=paragraph(&c,"Şu an kapatma önerisi yok. Ölçüm ve gözlem süresini izle.",x:x,y:row,w:w,ink:.muted)}
+        if count==0 {row=paragraph(&c,L10n.text("No termination recommendation now. Monitor usage and observation time."),x:x,y:row,w:w,ink:.muted)}
         for rec in a.recommendations {
-            row=paragraph(&c,"◆ "+rec.title.uppercased(with:Locale(identifier:"tr_TR")),x:x,y:row,w:w,ink:.warning)
+            row=paragraph(&c,"◆ "+rec.title.uppercased(with:L10n.locale),x:x,y:row,w:w,ink:.warning)
             row=paragraph(&c,rec.evidence,x:x,y:row,w:w)
             row=paragraph(&c,rec.caveat,x:x,y:row,w:w,ink:.muted)+1
         }
         let actions=Array(Set(a.recommendations.map(\.action))).sorted()
         if !actions.isEmpty {
-            section(&c,"NE YAPILABİLİR?",x:x,y:row,w:w,ink:.good);row+=1
+            section(&c,L10n.text("WHAT CAN I DO?"),x:x,y:row,w:w,ink:.good);row+=1
             for action in actions {row=paragraph(&c,action,x:x,y:row,w:w)+1}
         }
         return row+1
@@ -102,45 +102,45 @@ extension TerminalRenderer {
     static func swapContent(_ c:inout TerminalCanvas,_ state:TerminalState,x:Int,y:Int,w:Int,charts:Bool,brief:Bool=false)->Int {
         guard let s=state.visibleSnapshot else {return y}
         let history=recent(state),a=assessSwap(snapshot:s,history:state.visibleHistory)
-        section(&c,"SWAP · sistem geneli",x:x,y:y,w:w,ink:.memory)
+        section(&c,L10n.text("SWAP · system-wide"),x:x,y:y,w:w,ink:.memory)
         var row=y+1
         row=paragraph(&c,a.title,x:x,y:row,w:w,ink:swapInk(a))
-        c.write(TerminalText.clipped("Diskte tutulan  "+formatBytes(s.swapUsedBytes),to:w),x:x,y:row,ink:.primary);row+=1
+        c.write(TerminalText.clipped(L10n.text("Stored on disk  ")+formatBytes(s.swapUsedBytes),to:w),x:x,y:row,ink:.primary);row+=1
         if charts {
             let stocks=values(history,{$0.swapUsedBytes.map{Double($0)}}),peak=stocks.compactMap{$0}.max()
             let stockHeight=brief ? 2:3,rateHeight=brief ? 1:2
             graph(&c,values:stocks,x:x,y:row,width:w,height:stockHeight,ceiling:nil,ink:.memory);row+=stockHeight
-            let scale=peak.flatMap{$0<Double(UInt64.max) ? UInt64($0):nil}.map{"0–"+formatBytes($0)} ?? "ölçüm yok"
-            c.write(TerminalText.clipped(scale+" · stok",to:w),x:x,y:row,ink:.muted);row+=brief ? 1:2
+            let scale=peak.flatMap{$0<Double(UInt64.max) ? UInt64($0):nil}.map{"0–"+formatBytes($0)} ?? L10n.text("no measurements")
+            c.write(TerminalText.clipped(scale+L10n.text(" · stock"),to:w),x:x,y:row,ink:.muted);row+=brief ? 1:2
             let out=values(history,{$0.swapOutBytesPerSecond}),input=values(history,{$0.swapInBytesPerSecond})
             let ratePeak=max(1,(out+input).compactMap{$0}.max() ?? 1)
             c.write(TerminalText.clipped("RAM → disk  "+formatRate(s.swapOutBytesPerSecond),to:w),x:x,y:row,ink:.warning);row+=1
             graph(&c,values:out,x:x,y:row,width:w,height:rateHeight,ceiling:ratePeak,ink:.warning);row+=rateHeight+(brief ? 0:1)
             c.write(TerminalText.clipped("Disk → RAM  "+formatRate(s.swapInBytesPerSecond),to:w),x:x,y:row,ink:.disk);row+=1
             graph(&c,values:input,x:x,y:row,width:w,height:rateHeight,ceiling:ratePeak,ink:.disk);row+=rateHeight
-            c.write(TerminalText.clipped(((out+input).contains{$0 != nil} ? "0–"+formatRate(ratePeak)+" · ortak ölçek":"Aktarım ölçümü yok"),to:w),x:x,y:row,ink:.muted);row+=brief ? 1:2
+            c.write(TerminalText.clipped(((out+input).contains{$0 != nil} ? "0–"+formatRate(ratePeak)+L10n.text(" · shared scale"):L10n.text("No transfer measurements")),to:w),x:x,y:row,ink:.muted);row+=brief ? 1:2
         } else {
             row=paragraph(&c,"RAM → disk "+formatRate(s.swapOutBytesPerSecond)+" · disk → RAM "+formatRate(s.swapInBytesPerSecond),x:x,y:row,w:w,ink:.disk)
         }
         if let change=a.stockDeltaBytes,let seconds=a.observedSeconds {
-            row=paragraph(&c,"\(Int(seconds)) sn stok farkı  "+delta(change),x:x,y:row,w:w,ink:change>0 ? .warning:.secondary)
+            row=paragraph(&c,L10n.text("\(Int(seconds)) s stock change  ")+delta(change),x:x,y:row,w:w,ink:change>0 ? .warning:.secondary)
         }
-        let summary=brief ? "Swap stoku ve aktarım ayrıdır. Okuma, stoktan aynı miktarda düşüş demek değildir.":a.summary
+        let summary=brief ? L10n.text("Swap stock and transfers are separate. Reads do not imply an equal decrease in stock."):a.summary
         row=paragraph(&c,summary,x:x,y:row+1,w:w)
-        section(&c,"BASKIYI AZALTMA",x:x,y:row+1,w:w,ink:.good)
-        let action=brief ? (a.shouldReviewMemory ? "Gereksiz işi kaydedip normal kapat; baskı ve swap yazımını karşılaştır.":"Baskı ve yazımı izle; yalnız swap miktarına göre uygulama kapatma."):a.action
+        section(&c,L10n.text("REDUCE PRESSURE"),x:x,y:row+1,w:w,ink:.good)
+        let action=brief ? (a.shouldReviewMemory ? L10n.text("Save and normally close unneeded workloads; compare pressure and swap writes."):L10n.text("Monitor pressure and writes; do not close apps solely based on swap size.")):a.action
         row=paragraph(&c,action,x:x,y:row+2,w:w)
-        row=paragraph(&c,brief ? "Süreç başına swap ve kesin boşalacak miktar bilinmiyor.":a.limitation,x:x,y:row+1,w:w,ink:.muted)
+        row=paragraph(&c,brief ? L10n.text("Per-process swap and exact reclaimable amounts are unknown."):a.limitation,x:x,y:row+1,w:w,ink:.muted)
         return row+1
     }
     static func assessmentDocument(_ state:TerminalState,width:Int,compact:Bool,dense:Bool=false)->(TerminalCanvas,Int) {
         var doc=TerminalCanvas(width:width,height:300)
-        guard let p=state.selectedProcess,let a=processAssessment(state) else {doc.write("Seçili süreç yok",x:0,y:0,ink:.muted);return(doc,1)}
+        guard let p=state.selectedProcess,let a=processAssessment(state) else {doc.write(L10n.text("No selected process"),x:0,y:0,ink:.muted);return(doc,1)}
         var y=paragraph(&doc,dense ? TerminalText.clipped(p.name,to:width):p.name,x:0,y:0,w:width,ink:.primary)
-        let identity="PID \(p.pid) · Açık \(age(p.ageSeconds)) · \(p.applicationName)"
+        let identity=L10n.text("PID \(p.pid) · Age \(age(p.ageSeconds)) · \(p.applicationName)")
         y=paragraph(&doc,dense ? TerminalText.clipped(identity,to:width):identity,x:0,y:y,w:width,ink:.muted)+(dense ? 0:1)
-        if state.selectedProcessIsMissing {y=paragraph(&doc,"SÜREÇ ARTIK GÖRÜNMÜYOR · son gözlenen ölçüm",x:0,y:y,w:width,ink:.warning)+(dense ? 0:1)}
-        else if state.frozen || state.historyVisible {y=paragraph(&doc,"GEÇMİŞ ÖLÇÜM · CANLI KARAR DEĞİL",x:0,y:y,w:width,ink:.warning)+(dense ? 0:1)}
+        if state.selectedProcessIsMissing {y=paragraph(&doc,L10n.text("PROCESS NO LONGER VISIBLE · last observed sample"),x:0,y:y,w:width,ink:.warning)+(dense ? 0:1)}
+        else if state.frozen || state.historyVisible {y=paragraph(&doc,L10n.text("HISTORICAL SAMPLE · NOT A LIVE DECISION"),x:0,y:y,w:width,ink:.warning)+(dense ? 0:1)}
         let label=resourceSummary(p,a)
         y=paragraph(&doc,dense ? TerminalText.clipped(label,to:width):label,x:0,y:y,w:width,ink:a.signals.isEmpty ? .secondary:.warning)
         let next="→ "+quickAction(state,a)
@@ -155,37 +155,37 @@ extension TerminalRenderer {
         if split {y=max(y,swapContent(&doc,state,x:rightX,y:start,w:rightWidth,charts:true))}
         else if !compact {y=swapContent(&doc,state,x:0,y:y,w:width,charts:false)}
         if !compact {
-            section(&doc,"ÖLÇÜM BAĞLAMI",x:0,y:y,w:width,ink:.muted);y+=1
-            y=paragraph(&doc,"Proje: \(p.projectName ?? "belirlenemedi") · Kimlik \(p.id)",x:0,y:y,w:width,ink:.muted)
-            y=paragraph(&doc,"Grafikler son 120 sn içindeki örneklerdir; her grafik kendi ölçeğinde. Ayak izi RAM yüzdesi veya kesin boşalacak swap değildir.",x:0,y:y,w:width,ink:.muted)
-            y=paragraph(&doc,"Eşikler: CPU ≥1 çek. / ≥2 kırmızı; ayak izi ≥2 GiB / ≥4 kırmızı; Δ ≥100 MiB. b: sistemin bellek/swap görünümü.",x:0,y:y,w:width,ink:.muted)
+            section(&doc,L10n.text("MEASUREMENT CONTEXT"),x:0,y:y,w:width,ink:.muted);y+=1
+            y=paragraph(&doc,L10n.text("Project: \(p.projectName ?? L10n.text("unknown")) · Identity \(p.id)"),x:0,y:y,w:width,ink:.muted)
+            y=paragraph(&doc,L10n.text("Charts show samples from the last 120 s, each on its own scale. Footprint is not RAM percentage or reclaimable swap."),x:0,y:y,w:width,ink:.muted)
+            y=paragraph(&doc,L10n.text("Thresholds: CPU ≥1 core / ≥2 red; footprint ≥2 GiB / ≥4 red; Δ ≥100 MiB. b: system memory/swap view."),x:0,y:y,w:width,ink:.muted)
         }
         return(doc,y)
     }
     static func swapInspector(_ c:inout TerminalCanvas,_ state:TerminalState,x:Int,y:Int,w:Int,h:Int) {
-        c.box(x:x,y:y,width:w,height:h,title:"SWAP / BELLEK · b geri",ink:.memory)
+        c.box(x:x,y:y,width:w,height:h,title:L10n.text("SWAP / MEMORY · b back"),ink:.memory)
         var doc=TerminalCanvas(width:w-4,height:200)
         let height=swapContent(&doc,state,x:0,y:0,w:w-4,charts:h>=25,brief:h<44)
         c.copy(doc,toX:x+2,toY:y+1,rowCount:min(h-2,height))
-        if height>h-2 {c.write(" Enter: süreç ve swap bağlamı ",x:x+2,y:y+h-1,ink:.cpu)}
+        if height>h-2 {c.write(L10n.text(" Enter: process and swap context "),x:x+2,y:y+h-1,ink:.cpu)}
     }
     static func swapBand(_ c:inout TerminalCanvas,_ state:TerminalState,y:Int,w:Int,h:Int) {
         guard let s=state.visibleSnapshot else {return}
         let a=assessSwap(snapshot:s,history:state.visibleHistory),history=recent(state)
-        c.box(x:0,y:y,width:w,height:h,title:"SWAP / BELLEK · b geri",ink:.memory)
+        c.box(x:0,y:y,width:w,height:h,title:L10n.text("SWAP / MEMORY · b back"),ink:.memory)
         let half=w/2
         c.write(TerminalText.clipped(a.title,to:w-4),x:2,y:y+1,ink:swapInk(a))
-        c.write(TerminalText.clipped("Stok "+formatBytes(s.swapUsedBytes),to:half-4),x:2,y:y+2,ink:.memory)
+        c.write(TerminalText.clipped(L10n.text("Stock ")+formatBytes(s.swapUsedBytes),to:half-4),x:2,y:y+2,ink:.memory)
         let stocks=values(history,{$0.swapUsedBytes.map{Double($0)}}),out=values(history,{$0.swapOutBytesPerSecond}),input=values(history,{$0.swapInBytesPerSecond})
         let peak=stocks.compactMap{$0}.max(),ratePeak=max(1,(out+input).compactMap{$0}.max() ?? 1)
         c.write(TerminalText.clipped("RAM→disk "+formatRate(s.swapOutBytesPerSecond),to:half-3),x:half,y:y+2,ink:.warning)
         graph(&c,values:stocks,x:2,y:y+3,width:half-4,height:2,ceiling:nil,ink:.memory)
         c.write(TerminalPlot.sparkline(out,width:w-half-2,ceiling:ratePeak),x:half,y:y+3,ink:.warning)
         c.write(TerminalText.clipped("Disk→RAM "+formatRate(s.swapInBytesPerSecond),to:half-3),x:half,y:y+4,ink:.disk)
-        let stockScale=peak.flatMap{$0<Double(UInt64.max) ? UInt64($0):nil}.map{"0–"+formatBytes($0)+" · stok"} ?? "Stok ölçümü yok"
+        let stockScale=peak.flatMap{$0<Double(UInt64.max) ? UInt64($0):nil}.map{"0–"+formatBytes($0)+L10n.text(" · stock")} ?? L10n.text("No stock measurements")
         c.write(TerminalText.clipped(stockScale,to:half-4),x:2,y:y+5,ink:.muted)
-        let rateScale=(out+input).contains{$0 != nil} ? "0–"+formatRate(ratePeak)+" · hız":"Hız ölçümü yok"
+        let rateScale=(out+input).contains{$0 != nil} ? "0–"+formatRate(ratePeak)+L10n.text(" · rate"):L10n.text("No rate measurements")
         c.write(TerminalText.clipped(rateScale,to:w-half-2),x:half,y:y+5,ink:.muted)
-        c.write(TerminalText.clipped("Ayak izi sırası · kesin swap sahibi/boşalacak miktar bilinmiyor",to:w-4),x:2,y:y+6,ink:.secondary)
+        c.write(TerminalText.clipped(L10n.text("Footprint order · exact swap ownership/reclaimable amount unknown"),to:w-4),x:2,y:y+6,ink:.secondary)
     }
 }

@@ -71,13 +71,13 @@ extension TerminalRenderer {
     static func impactPercent(_ value:Double?)->String { value.map{String(format:"%.1f%%",$0)} ?? "—" }
     static func impactPointDelta(_ value:Double?)->String {
         guard let value else {return "—"}
-        return (value<0 ? "−":value>0 ? "+":"")+String(format:"%.1f puan",abs(value))
+        return (value<0 ? "−":value>0 ? "+":"")+String(format:L10n.text("%.1f points"),abs(value))
     }
     static func impactPressure(_ value:Pressure)->String {
-        switch value {case .normal:return "Normal";case .warning:return "Uyarı";case .critical:return "Kritik";case .unknown:return "Bilinmiyor"}
+        switch value {case .normal:return "Normal";case .warning:return L10n.text("Warning");case .critical:return L10n.text("Critical");case .unknown:return L10n.text("Unknown")}
     }
     static func impactCoverage(_ before:Double,_ after:Double,_ elapsed:Double)->String {
-        String(format:"Geçerli süre: %.0f/30 sn → %.0f/%.0f sn",before,after,elapsed)
+        String(format:L10n.text("Valid time: %.0f/30 s → %.0f/%.0f s"),before,after,elapsed)
     }
     static func impactBytes(_ value:Double)->String {
         guard value.isFinite,value>=0,value<Double(UInt64.max) else {return "—"}
@@ -89,22 +89,22 @@ extension TerminalRenderer {
         let status=state.impactSession?.status ?? .unverified
         var outcome=closureOutcome(status)
         if report.isComplete {
-            if status == .stillRunning {outcome.0="SON KONTROLDE ÇALIŞIYORDU"}
-            else if status == .waitingForExit {outcome.0="ÇIKIŞI GÖZLENMEDİ"}
+            if status == .stillRunning {outcome.0=L10n.text("RUNNING AT LAST CHECK")}
+            else if status == .waitingForExit {outcome.0=L10n.text("EXIT NOT OBSERVED")}
         }
         c.fillRow(y:0,fill:.panel)
-        c.write(" TAWL / SON KAPATMA · SİSTEM KARŞILAŞTIRMASI",x:0,y:0,ink:.cpu)
-        let identity="PID \(report.intent.pid) · İstek \(time(report.startedOn))"
+        c.write(L10n.text(" TAWL / LAST TERMINATION · SYSTEM COMPARISON"),x:0,y:0,ink:.cpu)
+        let identity=L10n.text("PID \(report.intent.pid) · Request \(time(report.startedOn))")
         let identityX=w-1-TerminalText.width(identity)
         c.write(TerminalText.clipped(report.intent.applicationName,to:max(1,identityX-3)),x:1,y:1,ink:.primary)
         c.write(identity,x:identityX,y:1,ink:.secondary)
-        c.write(TerminalText.clipped(outcome.0+" · "+(report.isComplete ? "Ölçüm tamamlandı":"Gözlem sürüyor"),to:w-2),x:1,y:2,ink:outcome.2)
+        c.write(TerminalText.clipped(outcome.0+" · "+(report.isComplete ? L10n.text("Measurement complete"):L10n.text("Observing")),to:w-2),x:1,y:2,ink:outcome.2)
         let elapsed=String(format:"%.0f",report.elapsed)
-        c.write(TerminalText.clipped("Önce 30 sn  →  Sonra \(elapsed) / 60 sn · "+(report.isComplete ? "Sabit sonuç":"Kısmi karşılaştırma"),to:w-2),x:1,y:3,ink:.secondary)
+        c.write(TerminalText.clipped(L10n.text("Before 30 s  →  After \(elapsed) / 60 s · ")+(report.isComplete ? L10n.text("Final result"):L10n.text("Partial comparison")),to:w-2),x:1,y:3,ink:.secondary)
         let marker=2+inner/3
-        c.write("−30 sn",x:2,y:4,ink:.muted)
-        c.write("0 · İSTEK",x:max(2,marker-4),y:4,ink:.primary)
-        c.write("+60 sn",x:w-8,y:4,ink:.muted)
+        c.write(L10n.text("−30 s"),x:2,y:4,ink:.muted)
+        c.write(L10n.text("0 · REQUEST"),x:max(2,marker-4),y:4,ink:.primary)
+        c.write(L10n.text("+60 s"),x:w-8,y:4,ink:.muted)
         let available=c.height-8,base=available/4,remainder=available%4
         var y=5
         let stocks=(report.before+report.after).compactMap{$0.swapUsedBytes.map{Double($0)}}
@@ -116,10 +116,10 @@ extension TerminalRenderer {
         let coverageCPU=impactCoverage(s.before.cpu.coverageSeconds,s.after.cpu.coverageSeconds,report.elapsed)
         let coverageWrite=impactCoverage(s.before.swapOut.coverageSeconds,s.after.swapOut.coverageSeconds,report.elapsed)
         let descriptors:[(String,String,String,ImpactChartMetric,TerminalInk,Double,Double)]=[
-            ("SİSTEM CPU", "\(impactPercent(s.before.cpu.value)) → \(impactPercent(s.after.cpu.value))  Δ \(impactPointDelta(s.cpuDeltaPercentagePoints))", coverageCPU+" · ort. · 0–100%", .cpu,.cpu,0,100),
-            ("BELLEK BASKISI", "\(impactPressure(s.before.pressure)) → \(impactPressure(s.after.pressure))", "Son durum · ▁ Normal  ▄ Uyarı  █ Kritik · sayısal ortalama yok", .pressure,.memory,0,3),
-            ("SWAP STOKU", "\(formatBytes(s.before.swapUsedBytes)) → \(formatBytes(s.after.swapUsedBytes))  Δ \(delta(s.swapUsedDeltaBytes))", "Son değer · ölçek \(impactBytes(stockLow))–\(impactBytes(stockHigh)) · yakınlaştırılmış", .stock,.memory,stockLow,stockHigh),
-            ("SWAP YAZIMI", "\(formatRate(s.before.swapOut.value)) → \(formatRate(s.after.swapOut.value))", coverageWrite+" · RAM→disk · 0–\(formatRate(writeHigh))", .writes,.disk,0,writeHigh)
+            (L10n.text("SYSTEM CPU"), "\(impactPercent(s.before.cpu.value)) → \(impactPercent(s.after.cpu.value))  Δ \(impactPointDelta(s.cpuDeltaPercentagePoints))", coverageCPU+L10n.text(" · avg. · 0–100%"), .cpu,.cpu,0,100),
+            (L10n.text("MEMORY PRESSURE"), "\(impactPressure(s.before.pressure)) → \(impactPressure(s.after.pressure))", L10n.text("Last state · ▁ Normal  ▄ Warning  █ Critical · no numeric average"), .pressure,.memory,0,3),
+            (L10n.text("SWAP STOCK"), "\(formatBytes(s.before.swapUsedBytes)) → \(formatBytes(s.after.swapUsedBytes))  Δ \(delta(s.swapUsedDeltaBytes))", L10n.text("Last value · scale \(impactBytes(stockLow))–\(impactBytes(stockHigh)) · zoomed"), .stock,.memory,stockLow,stockHigh),
+            (L10n.text("SWAP WRITES"), "\(formatRate(s.before.swapOut.value)) → \(formatRate(s.after.swapOut.value))", coverageWrite+" · RAM→disk · 0–\(formatRate(writeHigh))", .writes,.disk,0,writeHigh)
         ]
         for (index,item) in descriptors.enumerated() {
             let height=base+(index<remainder ? 1:0),graphHeight=max(1,height-2)
@@ -133,9 +133,9 @@ extension TerminalRenderer {
             c.write(TerminalText.clipped(item.2,to:inner),x:2,y:y+height-1,ink:.muted)
             y+=height
         }
-        c.write(TerminalText.clipped("· ölçüm yok  boş: gelecek · Değişim, tek başına neden kanıtı değildir.",to:w-2),x:1,y:c.height-3,ink:.muted)
-        c.write(TerminalText.clipped("CPU/yazım: süre ağırlıklı ort. · Stok farkı kesin boşalan RAM değildir.",to:w-2),x:1,y:c.height-2,ink:.muted)
+        c.write(TerminalText.clipped(L10n.text("· no sample  blank: future · Change alone does not prove causation."),to:w-2),x:1,y:c.height-3,ink:.muted)
+        c.write(TerminalText.clipped(L10n.text("CPU/writes: time-weighted avg. · Stock change is not exact reclaimed RAM."),to:w-2),x:1,y:c.height-2,ink:.muted)
         c.fillRow(y:c.height-1,fill:.panel)
-        c.write(" d: HTML raporu kaydet · Esc / Enter geri · e son rapor · q çıkış",x:0,y:c.height-1,ink:.secondary)
+        c.write(L10n.text(" d: save HTML report · Esc / Enter back · e last report · q quit"),x:0,y:c.height-1,ink:.secondary)
     }
 }

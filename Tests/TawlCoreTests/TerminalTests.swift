@@ -8,7 +8,7 @@ final class TerminalTests: XCTestCase {
         value.cpuPercent = 40
         value.pressure = .normal
         value.processes = (0..<count).map { index in
-            ProcessSample(id: "\(index):1", pid: Int32(index + 100), name: "worker", applicationID: "app-\(index)", applicationName: "Uygulama \(index) 長い名前 👩🏽‍💻 " + String(repeating: "ü", count: 100), projectID: nil, projectName: nil, projectEvidence: nil, cpuCores: Double(reversed ? index : count-index), footprintBytes: 123_456_789, memoryDeltaBytes: 1024, diskReadBytesPerSecond: nil, diskWriteBytesPerSecond: nil)
+            ProcessSample(id: "\(index):1", pid: Int32(index + 100), name: "worker", applicationID: "app-\(index)", applicationName: "Application \(index) 長い名前 👩🏽‍💻 " + String(repeating: "é", count: 100), projectID: nil, projectName: nil, projectEvidence: nil, cpuCores: Double(reversed ? index : count-index), footprintBytes: 123_456_789, memoryDeltaBytes: 1024, diskReadBytesPerSecond: nil, diskWriteBytesPerSecond: nil)
         }
         value.totalProcessCount = count
         return value
@@ -19,7 +19,7 @@ final class TerminalTests: XCTestCase {
         XCTAssertEqual(input.feed([27,91]), [])
         XCTAssertEqual(input.feed([66,106]), [.down,.text("j")])
         XCTAssertEqual(input.feed([0xc3]), [])
-        XCTAssertEqual(input.feed([0xbc]), [.text("ü")])
+        XCTAssertEqual(input.feed([0xa9]), [.text("é")])
         XCTAssertEqual(input.feed([27]), [])
         XCTAssertEqual(input.flushEscape(), [.escape])
     }
@@ -53,7 +53,7 @@ final class TerminalTests: XCTestCase {
     func testHistoryExplainsUnavailableEarlierTime() {
         var state = TerminalState()
         state.accept(frame(0)); state.toggleHistory(); state.moveHistory(by: -1)
-        XCTAssertTrue(state.notice.contains("kayıt yok"))
+        XCTAssertTrue(state.notice.contains("No recordings"))
         XCTAssertEqual(state.visibleSnapshot?.monotonicTime, 0)
     }
 
@@ -175,10 +175,10 @@ final class TerminalTests: XCTestCase {
             XCTAssertTrue(render.lines.allSatisfy { TerminalText.width($0) <= width })
             XCTAssertGreaterThanOrEqual(render.visibleRowIDs.count, width == 80 ? 8 : 12)
             XCTAssertTrue(render.lines.joined().contains("CPU"))
-            XCTAssertTrue(render.lines.joined().contains("CPU(çek.)"))
+            XCTAssertTrue(render.lines.joined().contains("CPU(cores)"))
         }
         let large = TerminalRenderer.render(state, width: 160, height: 45)
-        XCTAssertTrue(large.lines.joined().contains("SEÇİLİ İŞ"))
+        XCTAssertTrue(large.lines.joined().contains("SELECTED WORKLOAD"))
     }
 
     func testScrollingKeepsSelectedRowVisibleAndSearchReallyFilters() {
@@ -186,12 +186,12 @@ final class TerminalTests: XCTestCase {
         state.accept(frame(0, count: 80)); state.moveSelection(by: 50)
         let render = TerminalRenderer.render(state, width: 100, height: 30)
         XCTAssertTrue(render.visibleRowIDs.contains(state.selectedID ?? ""))
-        state.setSearch("Uygulama 37 ")
+        state.setSearch("Application 37 ")
         XCTAssertEqual(state.workloads.count, 1)
         XCTAssertTrue(state.workloads.first?.name.contains("37") == true)
         state.setSearch("does not exist")
         XCTAssertTrue(state.workloads.isEmpty)
-        XCTAssertTrue(TerminalRenderer.render(state, width: 80, height: 24).lines.joined().contains("eşleşme yok"))
+        XCTAssertTrue(TerminalRenderer.render(state, width: 80, height: 24).lines.joined().contains("No search matches"))
     }
 
     func testDetailWrapsLongNamesAndMissingMetricsAreExplicit() {
@@ -199,12 +199,12 @@ final class TerminalTests: XCTestCase {
         var value = frame(0, count: 1)
         value.cpuPercent = nil; value.processes[0].cpuCores = nil
         value.processes[0].footprintBytes = nil
-        value.processes[0].applicationName = String(repeating: "Uzun proje adı ", count: 10)
+        value.processes[0].applicationName = String(repeating: "Long project name ", count: 10)
         state.accept(value); state.detailVisible = true
         let render = TerminalRenderer.render(state, width: 80, height: 24)
         XCTAssertTrue(render.lines.allSatisfy { TerminalText.width($0) <= 80 })
         XCTAssertTrue(render.lines.joined().contains("CPU —"))
-        XCTAssertTrue(render.lines.joined().contains("bilinmiyor"))
+        XCTAssertTrue(render.lines.joined().contains("unknown"))
         XCTAssertTrue(render.lines.joined().contains("PID"))
     }
 }

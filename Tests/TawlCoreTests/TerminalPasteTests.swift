@@ -47,7 +47,7 @@ final class TerminalPasteTests: XCTestCase {
     func testConsecutivePastesAndOrdinaryUTF8KeysDoNotInterfere() {
         var input = TerminalInput()
         XCTAssertEqual(input.feed(start + commands + end + start + commands + end), [])
-        XCTAssertEqual(input.feed([0xc4]), [])
-        XCTAssertEqual(input.feed([0xb1]), [.text("ı")])
+        XCTAssertEqual(input.feed([0xc3]), [])
+        XCTAssertEqual(input.feed([0xa9]), [.text("é")])
     }
 }

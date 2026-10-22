@@ -7,13 +7,13 @@ public struct ClosureControlRow {
     public var eligible:Bool {block == nil}
     var badge:String {
         switch block {
-        case nil:return reasons.isEmpty ? "MANUEL":"ÖNERİ"
-        case .noRecommendation:return "Öneri yok"
-        case .protectedProcess:return "Korunuyor"
-        case .notLive:return "Canlı gerek"
-        case .staleSample:return "Ölçüm eski"
-        case .ownershipUnknown:return "Belirsiz"
-        default:return "Değişti"
+        case nil:return reasons.isEmpty ? L10n.text("MANUAL"):L10n.text("SUGGESTED")
+        case .noRecommendation:return L10n.text("No advice")
+        case .protectedProcess:return L10n.text("Protected")
+        case .notLive:return L10n.text("Needs live")
+        case .staleSample:return L10n.text("Stale sample")
+        case .ownershipUnknown:return L10n.text("Uncertain")
+        default:return L10n.text("Changed")
         }
     }
 }
@@ -62,7 +62,7 @@ extension TerminalState {
     public mutating func prepareControlledClosure(using controller:ProcessClosureControlling,now:Double) {
         closureControlNow=now;closureControlFailedID=nil
         guard let row=selectedControlRow else {
-            closureControlMessage="Seçili süreç bu ölçümde yok. ↑↓ ile güncel bir süreç seç.";return
+            closureControlMessage=L10n.text("Selected process is missing from this sample. ↑↓ to select a current process.");return
         }
         if let block=row.block {closureControlMessage=block.message;return}
         beginClosure(using:controller,now:now,candidate:row.process)
@@ -81,19 +81,19 @@ extension TerminalRenderer {
         let recommended=rows.filter{$0.eligible && $0.process.id != failedID && !$0.reasons.isEmpty}.count
         let manual=rows.filter{$0.eligible && $0.process.id != failedID && $0.reasons.isEmpty}.count
         c.fillRow(y:0,fill:.panel)
-        c.write(" TAWL / SÜREÇ KAPATMA",x:0,y:0,ink:.cpu)
-        c.box(x:x,y:y,width:w,height:h,title:"SÜREÇ KAPATMA",ink:.cpu)
-        c.write("1 SÜREÇ SEÇ  →  2 ETKİYİ İNCELE / ONAYLA  →  3 SONUÇ",x:x+2,y:y+1,ink:.cpu)
-        let scope=state.closureControlAll ? "Tüm uygulamalardaki öneriler":"Seçili iş: "+(state.selectedWorkload?.name ?? "Yok")
+        c.write(L10n.text(" TAWL / PROCESS TERMINATION"),x:0,y:0,ink:.cpu)
+        c.box(x:x,y:y,width:w,height:h,title:L10n.text("PROCESS TERMINATION"),ink:.cpu)
+        c.write(L10n.text("1 SELECT PROCESS  →  2 REVIEW IMPACT / CONFIRM  →  3 RESULT"),x:x+2,y:y+1,ink:.cpu)
+        let scope=state.closureControlAll ? L10n.text("Recommendations across all applications"):L10n.text("Selected workload: ")+(state.selectedWorkload?.name ?? L10n.text("None"))
         c.write(TerminalText.clipped(scope,to:inner),x:x+2,y:y+2,ink:.primary)
-        let mode=state.historyVisible || state.frozen ? " · GEÇMİŞ/SABİT: canlı ölçüm gerekli":" · CANLI"
-        c.write("\(rows.count) süreç · \(recommended) öneri · \(manual) manuel"+(failed ? " · 1 engel":"")+mode,x:x+2,y:y+3,ink:state.historyVisible || state.frozen ? .warning:.secondary)
+        let mode=state.historyVisible || state.frozen ? L10n.text(" · HISTORY/FROZEN: live data required"):L10n.text(" · LIVE")
+        c.write(L10n.text("\(rows.count) processes · \(recommended) suggested · \(manual) manual")+(failed ? L10n.text(" · 1 blocked"):"")+mode,x:x+2,y:y+3,ink:state.historyVisible || state.frozen ? .warning:.secondary)
         let nameWidth=inner-41,cpuX=x+2+9+nameWidth,memX=cpuX+8,statusX=memX+12
         c.fillRow(y:y+4,from:x+1,to:x+w-1,fill:.panel)
-        c.write("  PID    SÜREÇ",x:x+2,y:y+4,ink:.secondary)
-        c.write(right("CPU çek.",8),x:cpuX,y:y+4,ink:.cpu)
-        c.write(right("AYAK İZİ",12),x:memX,y:y+4,ink:.memory)
-        c.write(" DURUM",x:statusX,y:y+4,ink:.secondary)
+        c.write(L10n.text("  PID    PROCESS"),x:x+2,y:y+4,ink:.secondary)
+        c.write(right(L10n.text("CPU cr."),8),x:cpuX,y:y+4,ink:.cpu)
+        c.write(right(L10n.text("FOOTPRINT"),12),x:memX,y:y+4,ink:.memory)
+        c.write(L10n.text(" STATUS"),x:statusX,y:y+4,ink:.secondary)
         let capacity=max(1,h-13),selectedIndex=rows.firstIndex{$0.process.id==state.closureControlSelectedID} ?? 0
         let start=min(max(0,selectedIndex-capacity+1),max(0,rows.count-capacity))
         var ids:[String]=[]
@@ -105,39 +105,39 @@ extension TerminalRenderer {
             c.write(right(cores(p.cpuCores),8),x:cpuX,y:cy,ink:.cpu)
             c.write(right(formatBytes(p.footprintBytes),12),x:memX,y:cy,ink:.memory)
             let nativeFailed=p.id==failedID
-            c.write(" "+(nativeFailed ? "ENGELLİ":row.badge),x:statusX,y:cy,ink:nativeFailed ? .danger:row.eligible ? (row.reasons.isEmpty ? .cpu:.warning):.muted)
+            c.write(" "+(nativeFailed ? L10n.text("BLOCKED"):row.badge),x:statusX,y:cy,ink:nativeFailed ? .danger:row.eligible ? (row.reasons.isEmpty ? .cpu:.warning):.muted)
             ids.append(p.id)
         }
         if rows.isEmpty {
-            c.write("Bu kapsamda öneri adayı bulunmuyor.",x:x+2,y:y+6,ink:.warning)
-            c.write("Tab ile diğer kapsama geç; ölçüm toplamaya devam ediyor.",x:x+2,y:y+7,ink:.secondary)
+            c.write(L10n.text("No review candidates in this scope."),x:x+2,y:y+6,ink:.warning)
+            c.write(L10n.text("Tab to change scope; measurements continue."),x:x+2,y:y+7,ink:.secondary)
         }
         let base=y+h-7
         c.write(String(repeating:"─",count:inner),x:x+2,y:base-1,ink:.border)
         if let chosen {
             let p=chosen.process
-            c.write(TerminalText.clipped("Etkilenecek uygulama: "+p.applicationName,to:inner),x:x+2,y:base,ink:.primary)
-            c.write(TerminalText.clipped("Yalnız PID \(p.pid) · "+p.name,to:inner),x:x+2,y:base+1,ink:.secondary)
+            c.write(TerminalText.clipped(L10n.text("Affected application: ")+p.applicationName,to:inner),x:x+2,y:base,ink:.primary)
+            c.write(TerminalText.clipped(L10n.text("Only PID \(p.pid) · ")+p.name,to:inner),x:x+2,y:base+1,ink:.secondary)
         }
         var reason = !state.closureControlMessage.isEmpty ? state.closureControlMessage:
-            chosen?.block?.message ?? chosen?.reasons.joined(separator:" · ") ?? "↑↓ ile bir süreç seç. Tab: seçili iş / tüm öneriler."
+            chosen?.block?.message ?? chosen?.reasons.joined(separator:" · ") ?? L10n.text("↑↓ select process. Tab: selected workload / all recommendations.")
         if chosen?.eligible == true && chosen?.reasons.isEmpty == true && state.closureControlMessage.isEmpty {
-            reason = "Manuel seçim: otomatik öneri yok. Bu süreç onayınla kapatılabilir."
+            reason = L10n.text("Manual selection: no automatic recommendation. You can confirm termination.")
         }
         for (i,line) in TerminalText.wrapped(reason,to:inner).prefix(2).enumerated() {
             c.write(line,x:x+2,y:base+2+i,ink:failed ? .danger:chosen?.eligible == true && state.closureControlMessage.isEmpty ? .warning:.secondary)
         }
         let action:String
-        if state.historyVisible && state.frozen {action="Esc ile dön; h, ardından Space ile canlı ölçüme geç."}
-        else if state.historyVisible {action="Esc ile dön; h ile canlı ölçüme geç."}
-        else if state.frozen {action="Esc ile dön; Space ile canlı ölçüme geç."}
-        else if failed {action="Enter / i: yeniden dene · ↑↓ başka süreç seç"}
-        else {action=chosen?.eligible == true ? "Enter / i: etkiyi incele ve onaya geç":"Bu süreç için kapatma etkin değil · ↑↓ başka süreç seç"}
+        if state.historyVisible && state.frozen {action=L10n.text("Esc to return; h, then Space to resume live samples.")}
+        else if state.historyVisible {action=L10n.text("Esc to return; h to resume live samples.")}
+        else if state.frozen {action=L10n.text("Esc to return; Space to resume live samples.")}
+        else if failed {action=L10n.text("Enter / i: retry · ↑↓ select another process")}
+        else {action=chosen?.eligible == true ? L10n.text("Enter / i: review impact and continue to confirmation"):L10n.text("Termination unavailable for this process · ↑↓ select another")}
         c.write(TerminalText.clipped(action,to:inner),x:x+2,y:y+h-3,ink:chosen?.eligible == true ? .cpu:.muted)
-        c.write("Tab kapsam · Esc geri · e son karşılaştırma · q çıkış",x:x+2,y:y+h-2,ink:.secondary)
+        c.write(L10n.text("Tab scope · Esc back · e last comparison · q quit"),x:x+2,y:y+h-2,ink:.secondary)
         if rows.count>capacity {c.write(" \(start+1)–\(min(rows.count,start+capacity))/\(rows.count) ",x:x+w-20,y:y+h-1,ink:.muted)}
         c.fillRow(y:c.height-1,fill:.panel)
-        c.write(" ↑↓ seç · Enter / i incele · Tab kapsam · Esc geri · q çıkış",x:0,y:c.height-1,ink:.secondary)
+        c.write(L10n.text(" ↑↓ select · Enter / i review · Tab scope · Esc back · q quit"),x:0,y:c.height-1,ink:.secondary)
         return ids
     }
     static func finishControl(_ c:inout TerminalCanvas,_ state:TerminalState)->TerminalFrame {

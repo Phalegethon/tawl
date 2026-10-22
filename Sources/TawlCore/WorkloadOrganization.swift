@@ -5,12 +5,12 @@ public enum WorkloadSort: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .automatic: return "Otomatik"
-        case .name: return "İş yükü"
-        case .cpu: return "CPU"
-        case .footprint: return "Ayak izi"
-        case .memoryDelta: return "Δ Bellek"
-        case .members: return "Üye"
+        case .automatic: return L10n.text("Automatic")
+        case .name: return L10n.text("Workload")
+        case .cpu: return L10n.text("CPU")
+        case .footprint: return L10n.text("Footprint")
+        case .memoryDelta: return L10n.text("Δ Memory")
+        case .members: return L10n.text("Members")
         }
     }
 }
@@ -23,9 +23,9 @@ public enum SortDirection: String, CaseIterable, Sendable {
 extension Grouping {
     public var title: String {
         switch self {
-        case .application: return "Uygulamalar"
-        case .project: return "Projeler"
-        case .category: return "Kullanım alanları"
+        case .application: return L10n.text("Applications")
+        case .project: return L10n.text("Projects")
+        case .category: return L10n.text("Usage categories")
         }
     }
 }
@@ -35,15 +35,15 @@ public enum UsageCategory: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .browsers: return "Tarayıcılar"
-        case .development: return "Geliştirme"
-        case .ai: return "Yapay zekâ"
-        case .communication: return "İletişim"
-        case .virtualization: return "Sanallaştırma"
-        case .databases: return "Veritabanları"
-        case .media: return "Medya"
-        case .system: return "Sistem"
-        case .other: return "Diğer"
+        case .browsers: return L10n.text("Browsers")
+        case .development: return L10n.text("Development")
+        case .ai: return L10n.text("AI")
+        case .communication: return L10n.text("Communication")
+        case .virtualization: return L10n.text("Virtualization")
+        case .databases: return L10n.text("Databases")
+        case .media: return L10n.text("Media")
+        case .system: return L10n.text("System")
+        case .other: return L10n.text("Other")
         }
     }
 }
@@ -93,7 +93,7 @@ public func usageCategory(for process: ProcessSample) -> UsageCategory {
 public func workloadGroupIdentity(for process: ProcessSample, by grouping: Grouping) -> (id: String, name: String) {
     switch grouping {
     case .application: return (process.applicationID, process.applicationName)
-    case .project: return (process.projectID ?? "unassigned", process.projectName ?? "Projesi belirlenemeyen")
+    case .project: return (process.projectID ?? "unassigned", process.projectName ?? L10n.text("Unassigned project"))
     case .category:
         let category = usageCategory(for: process)
         return ("category:" + category.rawValue, category.title)
@@ -111,7 +111,7 @@ private func ordered<Value: Comparable>(_ left: Value?, _ right: Value?, directi
 }
 
 private func nameOrdered(_ left: String, _ right: String, direction: SortDirection, leftID: String, rightID: String) -> Bool {
-    let comparison = left.compare(right, options: [.caseInsensitive, .numeric], locale: Locale(identifier: "tr_TR"))
+    let comparison = left.compare(right, options: [.caseInsensitive, .numeric], locale: L10n.locale)
     if comparison == .orderedSame { return leftID < rightID }
     return direction == .ascending ? comparison == .orderedAscending : comparison == .orderedDescending
 }

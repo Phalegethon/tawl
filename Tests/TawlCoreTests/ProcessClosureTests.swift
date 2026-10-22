@@ -28,7 +28,7 @@ final class ProcessClosureTests: XCTestCase {
         XCTAssertEqual(intent.applicationName, "Browser")
         XCTAssertEqual(intent.applicationMemberCount, 2)
         XCTAssertEqual(intent.startedAt, 100)
-        XCTAssertTrue(intent.impact.joined().contains("Yalnız seçili süreç"))
+        XCTAssertTrue(intent.impact.joined().contains("only to the selected process"))
         XCTAssertFalse(intent.reasons.isEmpty)
     }
     func testPinnedStaleFutureAndInvalidClocksCannotPrepare() {
@@ -67,7 +67,7 @@ final class ProcessClosureTests: XCTestCase {
         var s = snapshot(p); s.pressure = .normal
         XCTAssertTrue(assessment(s).recommendations.isEmpty)
         let intent = try prepare(s).get()
-        XCTAssertTrue(intent.reasons.joined().contains("Manuel seçim"))
+        XCTAssertTrue(intent.reasons.joined().contains("Manual selection"))
         XCTAssertEqual(intent.pid, p.pid)
         XCTAssertEqual(intent.applicationName, p.applicationName)
         XCTAssertEqual(validateProcessClosure(intent, snapshot:s, assessment:assessment(s), now:102, isLive:true), nil)
@@ -130,13 +130,13 @@ final class ProcessClosureTests: XCTestCase {
         var session = ProcessClosureSession(intent: try prepare().get()); session.choose(.confirm)
         let s = snapshot(time: 102)
         _ = try session.consumeConfirmation(snapshot: s, assessment: assessment(s), now: 103, isLive: true).get()
-        session.markSubmission(.rejected("Kimlik değişti"), now: 103)
-        XCTAssertEqual(session.status, .rejected("Kimlik değişti"))
+        session.markSubmission(.rejected("Identity changed"), now: 103)
+        XCTAssertEqual(session.status, .rejected("Identity changed"))
         session.markSubmission(.sent, now: 104)
-        XCTAssertEqual(session.status, .rejected("Kimlik değişti"))
+        XCTAssertEqual(session.status, .rejected("Identity changed"))
         var absent = snapshot(time: 106); absent.processes = []
         session.observe(snapshot: absent, now: 106)
-        XCTAssertEqual(session.status, .rejected("Kimlik değişti"))
+        XCTAssertEqual(session.status, .rejected("Identity changed"))
     }
     func testNativeObservationIsIgnoredBeforeSubmissionAndAfterCancellation() throws {
         var session = ProcessClosureSession(intent: try prepare().get())

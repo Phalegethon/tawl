@@ -10,7 +10,7 @@ public final class NativeCollector {
     public func collect() -> RawReading {
         var reading = RawReading()
         guard let pointer = nb_collect() else {
-            reading.limitations = ["Sistem örneği için bellek ayrılamadı; sayaçlar okunamadı."]
+            reading.limitations = [L10n.text("Could not allocate a system sample; counters unavailable.")]
             return reading
         }
         defer { nb_free_reading(pointer) }
@@ -19,38 +19,38 @@ public final class NativeCollector {
         reading.monotonicTime = native.monotonic_seconds
         reading.logicalCPUCount = Int(native.logical_cpus)
         if valid(NB_CPU_VALID) { reading.cpuTicks = CPUTicks(busy: native.cpu_busy, total: native.cpu_total) }
-        else { reading.limitations.append("Sistem CPU sayaçları okunamadı.") }
+        else { reading.limitations.append(L10n.text("System CPU counters unavailable.")) }
         collectHardware(into: &reading)
         if valid(NB_MEMORY_VALID) { reading.memoryTotalBytes = native.memory_total }
-        else { reading.limitations.append("Fiziksel bellek toplamı okunamadı.") }
+        else { reading.limitations.append(L10n.text("Total physical memory unavailable.")) }
         if valid(NB_VM_VALID) {
             reading.compressedBytes = native.compressed_bytes
             reading.swapInBytes = native.swap_in_bytes
             reading.swapOutBytes = native.swap_out_bytes
-        } else { reading.limitations.append("Sıkıştırılmış bellek ve swap hareketi sayaçları okunamadı.") }
+        } else { reading.limitations.append(L10n.text("Compressed-memory and swap-activity counters unavailable.")) }
         if valid(NB_SWAP_VALID) { reading.swapUsedBytes = native.swap_used_bytes }
-        else { reading.limitations.append("Swap kullanımı okunamadı.") }
+        else { reading.limitations.append(L10n.text("Swap usage unavailable.")) }
         if valid(NB_PRESSURE_VALID) {
             reading.pressure = native.pressure_level == 1 ? .normal : native.pressure_level == 2 ? .warning : .critical
-        } else { reading.limitations.append("İşletim sistemi bellek baskısı sinyali okunamadı.") }
+        } else { reading.limitations.append(L10n.text("Operating-system memory-pressure signal unavailable.")) }
 
         if valid(NB_NETWORK_VALID) {
             if networkSignature == nil || networkSignature == native.network_signature {
                 reading.networkInBytes = native.network_in_bytes
                 reading.networkOutBytes = native.network_out_bytes
-            } else { reading.limitations.append("Ağ arayüzleri değişti; bu aralıkta ağ hızı hesaplanmadı.") }
+            } else { reading.limitations.append(L10n.text("Network interfaces changed; network rates were not calculated for this interval.")) }
             networkSignature = native.network_signature
-        } else { networkSignature = nil; reading.limitations.append("Fiziksel ağ arayüzü sayaçları okunamadı.") }
-        reading.limitations.append("Ağ: en* Ethernet/Wi-Fi arayüzleri toplamı; loopback, tüneller, sanal köprüler ve diğer adlardaki arayüzler hariç.")
+        } else { networkSignature = nil; reading.limitations.append(L10n.text("Physical network-interface counters unavailable.")) }
+        reading.limitations.append(L10n.text("Network: total across en* Ethernet/Wi-Fi interfaces; excludes loopback, tunnels, virtual bridges, and differently named interfaces."))
         if valid(NB_DISK_VALID) {
             if diskSignature == nil || diskSignature == native.disk_signature {
                 reading.diskReadBytes = native.disk_read_bytes
                 reading.diskWriteBytes = native.disk_write_bytes
-            } else { reading.limitations.append("Disk aygıtları değişti; bu aralıkta disk hızı hesaplanmadı.") }
+            } else { reading.limitations.append(L10n.text("Disk devices changed; disk rates were not calculated for this interval.")) }
             diskSignature = native.disk_signature
-            reading.limitations.append("Disk: IOKit sayaçlarını yayımlayan \(native.disk_driver_count) fiziksel blok aygıt sürücüsü; \(native.disk_virtual_count) sanal aygıt hariç. Dosya I/O gecikmesi değildir.")
-        } else { diskSignature = nil; reading.limitations.append("Sistem disk I/O sayaçları okunamadı.") }
-        if native.disk_unknown_count > 0 { reading.limitations.append("\(native.disk_unknown_count) disk sürücüsünün fiziksel/sanal türü belirlenemedi; eksik toplam gösterilmedi.") }
+            reading.limitations.append(L10n.text("Disk: \(native.disk_driver_count) physical block-device drivers reporting IOKit counters; excludes \(native.disk_virtual_count) virtual devices. This is not file I/O latency."))
+        } else { diskSignature = nil; reading.limitations.append(L10n.text("System disk I/O counters unavailable.")) }
+        if native.disk_unknown_count > 0 { reading.limitations.append(L10n.text("Could not determine whether \(native.disk_unknown_count) disk drivers are physical or virtual; no partial total was shown.")) }
 
         reading.totalProcessCount = Int(native.listed_process_count)
         reading.unreadableProcessCount = Int(native.unreadable_process_count)
@@ -78,22 +78,22 @@ public final class NativeCollector {
                 if !cwdAvailable { missingCWD += 1; if isDenied(process.cwd_error) { deniedCWD += 1 } }
             }
         }
-        if !valid(NB_PROCESS_LIST_VALID) { reading.limitations.append("Süreç listesi okunamadı; süreç kapsamı bilinmiyor.") }
-        if valid(NB_PROCESS_LIST_TRUNCATED) { reading.limitations.append("Süreç listesi örnekleme sırasında büyüdü; liste kısmi olabilir.") }
+        if !valid(NB_PROCESS_LIST_VALID) { reading.limitations.append(L10n.text("Process list unavailable; process coverage unknown.")) }
+        if valid(NB_PROCESS_LIST_TRUNCATED) { reading.limitations.append(L10n.text("The process list grew during sampling; coverage may be partial.")) }
         if native.unreadable_process_count > 0 {
-            reading.limitations.append("Kimliği okunamayan \(native.unreadable_process_count) süreç: \(native.identity_denied_count) izin reddi, \(native.identity_changed_count) sonlanma/kimlik değişimi, \(native.identity_other_error_count) diğer hata.")
+            reading.limitations.append(L10n.text("Unreadable identity for \(native.unreadable_process_count) processes: \(native.identity_denied_count) permission denials, \(native.identity_changed_count) exits/identity changes, \(native.identity_other_error_count) other errors."))
         }
-        if missingUsage > 0 { reading.limitations.append("\(missingUsage) sürecin CPU/bellek/disk sayaçları eksik (\(deniedUsage) izin reddi); bilinmeyen alanlar sıfır sayılmaz.") }
-        if missingPath > 0 { reading.limitations.append("\(missingPath) sürecin çalıştırılabilir dosya yolu okunamadı.") }
-        if missingCWD > 0 { reading.limitations.append("\(missingCWD) sürecin çalışma dizini okunamadı (\(deniedCWD) izin reddi); proje eşleştirme kapsamı kısmi.") }
-        reading.limitations.append("Süreç kapsamı PID > 0; iki örnek arasında başlayıp biten işler yakalanmayabilir.")
+        if missingUsage > 0 { reading.limitations.append(L10n.text("Missing CPU/memory/disk counters for \(missingUsage) processes (\(deniedUsage) permission denials); unknown fields are not zero.")) }
+        if missingPath > 0 { reading.limitations.append(L10n.text("Executable paths unavailable for \(missingPath) processes.")) }
+        if missingCWD > 0 { reading.limitations.append(L10n.text("Working directories unavailable for \(missingCWD) processes (\(deniedCWD) permission denials); project attribution is partial.")) }
+        reading.limitations.append(L10n.text("Process coverage includes PID > 0; work that starts and ends between samples may be missed."))
         return reading
     }
 }
 
 private func collectHardware(into reading: inout RawReading) {
     guard let pointer = nb_collect_hardware() else {
-        reading.limitations.append("CPU çekirdeği ve GPU ölçümü alınamadı."); return
+        reading.limitations.append(L10n.text("CPU-core and GPU measurements unavailable.")); return
     }
     defer { nb_free_hardware(pointer) }
     let hardware = pointer.pointee
@@ -103,7 +103,7 @@ private func collectHardware(into reading: inout RawReading) {
             let kind: CPUCoreKind = core.kind == NB_CPU_KIND_EFFICIENCY ? .efficiency : core.kind == NB_CPU_KIND_PERFORMANCE ? .performance : .unknown
             return RawCPUCore(id: Int(core.id), kind: kind, user: core.user, system: core.system, nice: core.nice, idle: core.idle)
         }.sorted { $0.id < $1.id }
-    } else { reading.limitations.append("Çekirdek bazında CPU sayaçları okunamadı.") }
+    } else { reading.limitations.append(L10n.text("Per-core CPU counters unavailable.")) }
     if hardware.valid & UInt32(NB_HARDWARE_GPU_VALID) != 0 {
         reading.gpus = []
         if let gpus = hardware.gpus {
@@ -116,8 +116,8 @@ private func collectHardware(into reading: inout RawReading) {
                                  tilerUtilizationPercent: gpu.valid & UInt32(NB_GPU_TILER_VALID) != 0 ? gpu.tiler_percent : nil)
             }.sorted { $0.id < $1.id }
         }
-    } else { reading.limitations.append("GPU aygıt listesi okunamadı veya kapsamı eksik.") }
-    reading.limitations.append("GPU: sürücünün yayımladığı aygıt toplamı; çekirdek veya süreç bazında kullanım değildir. Eksik sürücü ölçümü sıfır sayılmaz.")
+    } else { reading.limitations.append(L10n.text("GPU device list unavailable or incomplete.")) }
+    reading.limitations.append(L10n.text("GPU: device-wide totals reported by the driver, not per-core or per-process usage. Missing driver measurements are not zero."))
 }
 
 private func nativeString<T>(_ value: T) -> String {

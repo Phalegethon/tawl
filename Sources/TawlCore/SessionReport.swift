@@ -77,7 +77,7 @@ public func analyzeSession(_ snapshots: [Snapshot]) -> [Finding] {
     let information = latestInformation.compactMap { finding -> Finding? in
         if finding.code == "no-evidence" && !episodes.isEmpty { return nil }
         var latest = finding
-        latest.title = "Son örnek: " + finding.title
+        latest.title = L10n.text("Latest sample: ") + finding.title
         return latest
     }
     return episodes + information
@@ -94,13 +94,13 @@ private func recentCandidates(_ previous: [String], adding current: [String]) ->
 
 private func episodeTitle(_ finding: Finding) -> String {
     switch finding.code {
-    case "memory-pressure": return "Seçili aralıkta bellek baskısı gözlendi"
-    case "active-swap": return "Seçili aralıkta diske bellek aktarımı gözlendi"
-    case "sustained-cpu": return "Seçili aralıkta sürekli yüksek CPU yükü gözlendi"
+    case "memory-pressure": return L10n.text("Memory pressure observed in the selected interval")
+    case "active-swap": return L10n.text("Memory written to disk in the selected interval")
+    case "sustained-cpu": return L10n.text("Sustained high CPU load observed in the selected interval")
     default: return finding.title
     }
 }
 
 private func episodeDetail(_ finding: Finding) -> String {
-    "Son kanıt penceresi: " + finding.detail
+    L10n.text("Latest evidence window: ") + finding.detail
 }

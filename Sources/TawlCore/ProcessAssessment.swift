@@ -9,7 +9,7 @@ public struct ResourceSignal {
     public let resource: ResourceKind
     public let severity: ResourceSeverity
     public var label: String {
-        switch resource { case .cpu: return "CPU"; case .memory: return "BELLEK"; case .growth: return "ARTIŞ" }
+        switch resource { case .cpu: return L10n.text("CPU"); case .memory: return L10n.text("MEMORY"); case .growth: return L10n.text("GROWTH") }
     }
 }
 public enum RecommendationKind { case sustainedCPU, memoryPressure, quietMemory }
@@ -156,7 +156,7 @@ private func quiet(_ process: ProcessSample) -> Bool {
 public func assessProcess(_ process: ProcessSample, snapshot: Snapshot, history: [Snapshot],
                           evidence: ProcessEvidence? = nil) -> ProcessAssessment {
     guard let current = snapshot.processes.first(where: { $0.id == process.id }) else {
-        return ProcessAssessment(idleStatus: "Süreç bu örnekte yok; kapatma önerisi üretilemiyor.")
+        return ProcessAssessment(idleStatus: L10n.text("The process is absent from this sample; no termination recommendation is available."))
     }
     var result = ProcessAssessment(signals: resourceSignals(cpuCores: current.cpuCores,
                                                            footprintBytes: current.footprintBytes,
@@ -169,16 +169,16 @@ public func assessProcess(_ process: ProcessSample, snapshot: Snapshot, history:
     let categories = [usageCategory(for: current), usageCategory(for: executableIdentity)]
     if let category = categories.first(where: { $0 == .virtualization || $0 == .databases || $0 == .system }) {
         result.quietObservationState = .protected
-        result.idleStatus = "\(category.title) servisi: düşük CPU, gereksiz olduğu anlamına gelmez. Bağımlı işleri servis/VM yönetiminden incele; kapatma önerisi üretilmiyor."
+        result.idleStatus = L10n.text("\(category.title) service: low CPU does not mean unnecessary. Review dependent work in the service/VM manager; no termination recommendation is made.")
         return result
     }
     guard current.canReviewClosure == true else {
         result.quietObservationState = .protected
-        result.idleStatus = "Sahiplik/uygulama doğrulanamadı veya sistem süreci: kapatma önerisi yok."
+        result.idleStatus = L10n.text("Ownership/application could not be verified, or this is a system process: no termination recommendation.")
         return result
     }
     let app = cleanText(current.applicationName)
-    let action = "Önce \(app) içindeki işi/sekmesini kontrol et; gerekmiyorsa kaydedip uygulamadan normal çık. Canlı ekranda x ile uygulama etkisini inceleyip bu süreç için sonlandırma isteğini onaylayabilirsin."
+    let action = L10n.text("First review the task/tab in \(app); if unnecessary, save your work and quit normally. In the live view, press x to review application impact and confirm a termination request for this process.")
     let proof = evidence.flatMap { $0.matches(current, snapshot: snapshot) ? $0 : nil }
     let highCPU = proof?.highCPUSeconds ?? observedDuration(processID: current.id, snapshot: snapshot, history: history, limit: 30) { p in
         ProcessEvidenceMetrics(p).highCPU
@@ -188,25 +188,25 @@ public func assessProcess(_ process: ProcessSample, snapshot: Snapshot, history:
     }
     if highCPU >= 30 {
         result.recommendations.append(ProcessRecommendation(
-            kind: .sustainedCPU, title: "Sürekli CPU tüketimini incele",
-            evidence: "En az \(Int(highCPU)) sn boyunca ≥1 çekirdek; şu an \(String(format: "%.2f", current.cpuCores ?? 0)) çekirdek.",
-            action: action, caveat: "Derleme, video veya beklenen bir iş olabilir; bu ölçüm tek başına takılma kanıtı değildir."))
+            kind: .sustainedCPU, title: L10n.text("Review sustained CPU usage"),
+            evidence: L10n.text("At least \(Int(highCPU)) s at ≥1 core; currently \(String(format: "%.2f", current.cpuCores ?? 0)) cores."),
+            action: action, caveat: L10n.text("This may be a build, video, or expected task; the measurement alone does not prove a hang.")))
     }
     if (snapshot.pressure == .warning || snapshot.pressure == .critical),
        let memory = current.footprintBytes, memory >= 2_147_483_648 {
         result.recommendations.append(ProcessRecommendation(
-            kind: .memoryPressure, title: "Bellek baskısına katkısını incele",
-            evidence: "Sistem bellek baskısı var; bu süreç \(formatBytes(memory)) ayak izi taşıyor.",
-            action: action, caveat: "Büyük ayak izi baskının kesin nedeni değildir; uygulama kapanınca kazanılacak RAM bu değerle aynı olmayabilir."))
+            kind: .memoryPressure, title: L10n.text("Review contribution to memory pressure"),
+            evidence: L10n.text("The system reports memory pressure; this process has a \(formatBytes(memory)) footprint."),
+            action: action, caveat: L10n.text("A large footprint does not prove the cause of pressure; RAM recovered after closing the application may differ.")))
     }
     guard let age = current.ageSeconds, age.isFinite, age >= 0 else {
         result.quietObservationState = .unknownAge
-        result.idleStatus = "Süreç yaşı bilinmiyor; uzun süredir açık değerlendirmesi yapılamıyor."
+        result.idleStatus = L10n.text("Process age unknown; long-running assessment unavailable.")
         return result
     }
     if age < 7200 {
         result.quietObservationState = .young
-        result.idleStatus = "Uzun süre açık adayı değil: süreç yaşı 2 saatten az."
+        result.idleStatus = L10n.text("Not a long-running candidate: process age is less than 2 hours.")
         return result
     }
     let quietTime = proof?.quietSeconds ?? observedDuration(processID: current.id, snapshot: snapshot, history: history, limit: 600, accepts: quiet)
@@ -214,24 +214,24 @@ public func assessProcess(_ process: ProcessSample, snapshot: Snapshot, history:
         result.quietSeconds = 600
         result.quietObservationState = .qualified
         result.recommendations.append(ProcessRecommendation(
-            kind: .quietMemory, title: "Uzun süredir açık, düşük etkinlik adayı",
-            evidence: "Yaş ≥2 saat; son 10 dk CPU <0.02 çekirdek, disk okuma/yazma <1 KiB/sn, ayak izi ≥256 MiB.",
-            action: "\(app) içindeki bu işin hâlâ gerekli olup olmadığını kontrol et. Gerekmiyorsa kaydedip normal kapat.",
-            caveat: "Bu, kullanılmıyor demek değildir: pencere/klavye etkileşimi ve süreç bazında ağ etkinliği ölçülmüyor; arka plan işi olabilir."))
-        result.idleStatus = "10 dk düşük CPU/disk etkinliği gözlendi; kullanım durumu bilinmiyor."
+            kind: .quietMemory, title: L10n.text("Long-running, low-activity candidate"),
+            evidence: L10n.text("Age ≥2 hours; over the last 10 min, CPU <0.02 cores, disk reads/writes <1 KiB/s, footprint ≥256 MiB."),
+            action: L10n.text("Check whether this task in \(app) is still needed. If not, save your work and close it normally."),
+            caveat: L10n.text("This does not mean unused: window/keyboard interaction and per-process network activity are not measured; it may be background work.")))
+        result.idleStatus = L10n.text("10 min of low CPU/disk activity observed; usage status unknown.")
     } else if current.cpuCores.map({ !$0.isFinite || $0 < 0 }) ?? true ||
               current.diskReadBytesPerSecond.map({ !$0.isFinite || $0 < 0 }) ?? true ||
               current.diskWriteBytesPerSecond.map({ !$0.isFinite || $0 < 0 }) ?? true || current.footprintBytes == nil {
         result.quietObservationState = .missingMetrics
-        result.idleStatus = "Düşük etkinlik için CPU/bellek/disk kanıtı eksik; boşta kabul edilmiyor."
+        result.idleStatus = L10n.text("CPU/memory/disk evidence for low activity is missing; the process is not classified as idle.")
     } else if !quiet(current) {
         result.quietSeconds = 0
         result.quietObservationState = .active
-        result.idleStatus = "Düşük etkinlik koşulları şu an sağlanmıyor (CPU, disk veya ayak izi)."
+        result.idleStatus = L10n.text("Low-activity conditions are not currently met (CPU, disk, or footprint).")
     } else {
         result.quietSeconds = min(600, quietTime)
         result.quietObservationState = .observing
-        result.idleStatus = "Düşük etkinlik gözlemi \(Int(quietTime))/600 sn; kesintisiz 10 dk kanıt gerekiyor."
+        result.idleStatus = L10n.text("Low-activity observation: \(Int(quietTime))/600 s; 10 continuous minutes are required.")
     }
     return result
 }

@@ -38,27 +38,27 @@ public func assessSwap(snapshot: Snapshot, history: [Snapshot] = []) -> SwapAsse
     let summary: String
     switch activity {
     case .writing:
-        title = "SWAP'A YAZILIYOR"
-        summary = "Son ölçüm aralığında bellekteki sayfalar swap'a taşındı. Bu, hangi uygulamanın baskıyı başlattığını göstermez."
+        title = L10n.text("WRITING TO SWAP")
+        summary = L10n.text("Memory pages moved to swap during the latest interval. This does not identify the application that initiated pressure.")
     case .reading:
-        title = "SWAP'TAN OKUNUYOR"
-        summary = "Son ölçüm aralığında swap'taki sayfalara yeniden erişildi. Okuma, swap kullanımının aynı miktarda azalacağı anlamına gelmez."
+        title = L10n.text("READING FROM SWAP")
+        summary = L10n.text("Pages in swap were accessed again during the latest interval. Reading does not mean swap usage will decrease by the same amount.")
     case .idle:
-        title = "SWAP AKTARIMI YOK"
+        title = L10n.text("NO SWAP TRANSFER")
         summary = pressure
-            ? "Bu aralıkta swap aktarımı yok; sistem yine de bellek baskısı bildiriyor."
-            : "Bu aralıkta swap aktarımı yok. Birikmiş swap miktarı tek başına güncel darboğaz kanıtı değildir."
+            ? L10n.text("No swap transfer in this interval; the system still reports memory pressure.")
+            : L10n.text("No swap transfer in this interval. Accumulated swap alone does not prove a current bottleneck.")
     case .unknown:
-        title = "SWAP AKTARIMI BİLİNMİYOR"
-        summary = "Giriş/çıkış hızı için ölçüm eksik. Eksik veri sıfır aktarım sayılmaz."
+        title = L10n.text("SWAP TRANSFER UNKNOWN")
+        summary = L10n.text("Read/write rate measurements are missing. Missing data does not mean zero transfer.")
     }
     let action: String
     if review {
-        action = "Büyük ayak izli uygulamadaki gereksiz işi/sekmesini kaydedip normal kapat; ardından bellek baskısı ve swap'a yazma hızını karşılaştır. Swap'ın sıfırlanması hedef değildir."
+        action = L10n.text("Save and normally close unnecessary tasks/tabs in applications with large footprints; then compare memory pressure and swap write rate. Zero swap is not the goal.")
     } else if snapshot.pressure == .unknown || activity == .unknown || outgoing == nil {
-        action = "Yeni ölçümleri bekle; bellek baskısı ve swap'a yazma hızı birlikte bilinmeden yalnız swap miktarına göre uygulama kapatma."
+        action = L10n.text("Wait for new measurements; do not close applications based only on swap usage before both memory pressure and swap write rate are known.")
     } else {
-        action = "Baskı normal ve swap'a yazma yoksa sırf swap miktarı yüksek diye işlem gerekmez. Yeni yükte baskı ve yazma hızını izle."
+        action = L10n.text("If pressure is normal and there are no swap writes, high swap usage alone requires no action. Monitor pressure and write rate under new load.")
     }
 
     // Stop at missing data or a collection gap; never borrow future samples when
@@ -86,6 +86,6 @@ public func assessSwap(snapshot: Snapshot, history: [Snapshot] = []) -> SwapAsse
     }
     if delta == nil { seconds = nil }
     return SwapAssessment(activity: activity, title: title, summary: summary, action: action,
-                          limitation: "Süreç başına swap ölçülmüyor. Ayak izi swap payı veya kazanılacak RAM değildir; hangi süreç neden oldu, kaç GiB boşalır ve ne zaman azalır kesin hesaplanamaz.",
+                          limitation: L10n.text("Per-process swap is not measured. Footprint is neither swap share nor recoverable RAM; the responsible process, recoverable GiB, and time to decrease cannot be calculated precisely."),
                           stockDeltaBytes: delta, observedSeconds: seconds, shouldReviewMemory: review)
 }
